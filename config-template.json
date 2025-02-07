@@ -1,0 +1,42 @@
+{
+    "KEYS": {
+        "zenodoToken": "",
+        "dataverseToken": ""
+    },
+    "PERMUTATIONS": [
+        "The University of Texas at Austin",
+        "(University of Texas at Austin)",
+        "(University Of Texas At Austin)",
+        "University of Texas at Austin",
+        "University of Texas, Austin",
+        "University of Texas - Austin",
+        "The University of Texas - Austin",
+        "UT Austin",
+        "University of Texas-Austin",
+        "The University of Texas-Austin",
+        "University of Texas at Austin (utexas.edu)"
+    ],
+    "VARIABLES": {
+        "PAGE_SIZES": {
+            "dryad": 100,
+            "datacite": 1000,
+            "dataverse": 200,
+            "zenodo": 200
+        },
+        "PAGE_LIMITS": {
+            "datacite_test": 5,
+            "datacite_prod": 100,
+            "zenodo_test": 5,
+            "zenodo_prod": 10
+        },
+        "PAGE_STARTS": {
+            "dryad": 1,
+            "datacite": 0,
+            "dataverse": 0,
+            "zenodo": 0
+        },
+        "PAGE_INCREMENTS": {
+            "dataverse": 1
+        }
+    }
+}
