@@ -3,6 +3,9 @@
         "zenodoToken": "",
         "dataverseToken": ""
     },
+    "EMAIL": {
+        "user_email": ""
+    },
     "PERMUTATIONS": [
         "The University of Texas at Austin",
         "(University of Texas at Austin)",
@@ -18,14 +21,18 @@
     ],
     "VARIABLES": {
         "PAGE_SIZES": {
+            "crossref": 300,
             "dryad": 100,
             "datacite": 1000,
             "dataverse": 200,
+            "openalex": 200,
             "zenodo": 200
         },
         "PAGE_LIMITS": {
+            "crossref": 500,
             "datacite_test": 5,
-            "datacite_prod": 100,
+            "datacite_prod": 600,
+            "openalex": 1500,
             "zenodo_test": 5,
             "zenodo_prod": 10
         },
