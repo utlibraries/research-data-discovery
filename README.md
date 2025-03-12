@@ -1,12 +1,12 @@
 # Scripted process for retrieving metadata on institutional-affiliated research dataset publications
 
 ## Metadata
-* *Version*: 2.1.0.
-* *Released*: 2025/03/11
+* *Version*: 2.2.0.
+* *Released*: 2025/03/12
 * *Author(s)*: Bryan Gee (UT Libraries, University of Texas at Austin; bryan.gee@austin.utexas.edu; ORCID: [0000-0003-4517-3290](https://orcid.org/0000-0003-4517-3290))
 * *Contributor(s)*: None
 * *License*: [MIT](https://opensource.org/license/mit)
-* *README last updated*: 2025/03/11
+* *README last updated*: 2025/03/12
 
 ## Table of Contents
 1. [Purpose](#purpose)
@@ -22,9 +22,10 @@ This repository contains Python code that is designed to gather and organize met
 ## Organization & file list
 1. **dataset-records-retrieval.py**: This is the primary Python script for conducting large-scale records retrieval through the DataCite API. It also includes functionality for using a set of different APIs to try and identify deposits on Figshare that lack affiliation metadata but that can be connected to an article with at least one author from a focal institution.
 2. **config-template.json**: This is the config file that contains most parameters and that stores API keys. This file should be populated with personal information as necessary, with affiliation permutations modified if applying this to a different institution, and renamed as *config.json* in order for scripts to work.
-3. **accessory-scripts/dataset-records-retrieval-visualization.py**: This file contains the code used to generate visuals for the 2025 RDAP Summit.
-4. **accessory-scripts/figshare-plos-osi-search.py**: This file contains the code used to retrieve the latest version of the [PLOS Open Science Indicators (OSI) Dataset](https://plos.figshare.com/articles/dataset/PLOS_Open_Science_Indicators/21687686), identifies articles that list data as having been shared in part or in whole through Supplemental Information (mediated Figshare deposit for all PLOS titles), retrieves a list of PLOS articles with at least one author from a focal institution, and searches for matches to identify PLOS articles co-authored by a university researcher where 'data' were deposited on Figshare through the mediated process.
-5. **accessory-data/20250310-mediated-figshare-metadata-summary.csv**: This file contains a manually compiled summary of select metadata for Figshare deposits mediated through [publisher partners](https://info.figshare.com/working-with/)(filter on 'Publishers'); it is intended to provide insight into possible filter parameters that may permit their programmatic retrieval. This is a static file created on 2025/03/10, and partners/metadata may change in the future (e.g., SciELO journals was listed the last time I examined this in October 2024). Briefly, I accessed each publisher's Figshare collection through the web interface and selected 10 random deposits, with preference given to recent deposits. A few listed publishers are not recorded in the CSV file: JACC and SAGE redirect to the publishers' homepage, not a Figshare collection; Human Genome Variation is a database; and IEEE Standards, Medical Affairs Professional Society, Optica Open, and Physiome appeared to contain out-of-scope topic (e.g., only preprints in Optica Open). I recorded which indexer (DataCite vs. Crossref) was used to mint the DOI; what the listed publisher name is (*listed_publisher*); the *client-id* and *provider-id* if minted through DataCite, as these represent queryable fields that indicate a Figshare connection; up to 10 DOIs that were examined; whether the DOIs contain the string 'figshare' (*doi_figshare*); and how the DOIs were constructed (*doi_construction*). There are only a few DOI construction models: a default Figshare DOI that is randomly created and assigned with the prefix '10.6084/m9.figshare'; appending .t00x or .s00x to the end of the article DOI, where 'x' is a sequential integer; or a randomly created DOI using the associated journal/publisher's DOI prefix.
+3. **journal-list.json**: This file contains the official journal names and ISSNs to be queried as part of one of the possible Figshare workflows (construction of a hypothetical SI DOI and testing its existence). This file contains all PLOS titles as an example but could be expanded to any other journal that does uses the model of appending '.s00x' to the article DOI for mediated Figshare deposits. 
+4. **accessory-scripts/dataset-records-retrieval-visualization.py**: This file contains the code used to generate visuals for the 2025 RDAP Summit.
+5. **accessory-scripts/figshare-plos-osi-search.py**: This file contains the code used to retrieve the latest version of the [PLOS Open Science Indicators (OSI) Dataset](https://plos.figshare.com/articles/dataset/PLOS_Open_Science_Indicators/21687686), identifies articles that list data as having been shared in part or in whole through Supplemental Information (mediated Figshare deposit for all PLOS titles), retrieves a list of PLOS articles with at least one author from a focal institution, and searches for matches to identify PLOS articles co-authored by a university researcher where 'data' were deposited on Figshare through the mediated process.
+6. **accessory-data/20250310-mediated-figshare-metadata-summary.csv**: This file contains a manually compiled summary of select metadata for Figshare deposits mediated through [publisher partners](https://info.figshare.com/working-with/)(filter on 'Publishers'); it is intended to provide insight into possible filter parameters that may permit their programmatic retrieval. This is a static file created on 2025/03/10, and partners/metadata may change in the future (e.g., SciELO journals was listed the last time I examined this in October 2024). Briefly, I accessed each publisher's Figshare collection through the web interface and selected 10 random deposits, with preference given to recent deposits. A few listed publishers are not recorded in the CSV file: JACC and SAGE redirect to the publishers' homepage, not a Figshare collection; Human Genome Variation is a database; and IEEE Standards, Medical Affairs Professional Society, Optica Open, and Physiome appeared to contain out-of-scope topic (e.g., only preprints in Optica Open). I recorded which indexer (DataCite vs. Crossref) was used to mint the DOI; what the listed publisher name is (*listed_publisher*); the *client-id* and *provider-id* if minted through DataCite, as these represent queryable fields that indicate a Figshare connection; up to 10 DOIs that were examined; whether the DOIs contain the string 'figshare' (*doi_figshare*); and how the DOIs were constructed (*doi_construction*). There are only a few DOI construction models: a default Figshare DOI that is randomly created and assigned with the prefix '10.6084/m9.figshare'; appending .t00x or .s00x to the end of the article DOI, where 'x' is a sequential integer; or a randomly created DOI using the associated journal/publisher's DOI prefix.
 
 Several scripts will create additional subdirectories as part of their workflow (e.g., 'outputs'); these subdirectories are not provided here.
 
@@ -54,6 +55,35 @@ The third workflow takes advantage of a different configuration in certain journ
 There is also a highly specific script, **figshare-plos-osi-search.py**, which retrieves the [PLOS Open Science Indicators (OSI) dataset](https://plos.figshare.com/articles/dataset/PLOS_Open_Science_Indicators/21687686) through the Figshare API. This dataset encompasses all PLOS articles (through a certain timeframe) and has identified locations of data sharing. Because PLOS uses the mediated Figshare process, any article listed as having shared data as Supplemental Information has created a mediated Figshare deposit. This workflow (which runs in about 30 seconds), will identify all such articles, retrieve a list of university-affiliated PLOS articles through OpenAlex, and find matches. This script was mostly used as an initial test of concept for developing the above workarounds for Figshare deposits that can be applied across more publishers, but it can be useful for quickly getting an estimate of what proportion of articles have generated a Figshare deposit. Refer to the PLOS OSI methodology documentation for more details on how their dataset was generated; the same caveats of whether a deposit is a 'dataset proper' remain.
 
 The [DataCite Citation Corpus](https://support.datacite.org/docs/data-citation-corpus) was explored but is not presently incorporated because it returned very few results for UT Austin. 
+
+## Outputs
+
+Two files will always be saved regardless of whether cross-validation or Figshare workflows are used:
+
+1. ***date*_datacite-output-for-affiliation-source.csv**: This file is exported relatively early in the process with fields retrieved from DataCite and is used exclusively to summarize which field an institutional abbreviation was detected in (*affiliation_source*) and what permutation of the institutional name was detected (*affiliation_permutation*). This categorization is hierarchical; the script first looks in the *creator.affiliation.name* field, and if it finds a focal affiliation, will be recorded as 'creator.affiliation.' If no affiliation is found, it will then check *contributor.affiliation.name* field, and if it it finds a focal affiliation, will be recorded as 'contributor.affiliation.' For remaining entries, it will check *creator.name* and *contributor.name*. Whenever a match is found, the entry is removed from further consideration, so a dataset with the affiliation listed in both the *creator.affiliation.name* and *contributor.affiliation.name* fields will be listed here as 'creator.affiliation.' 
+
+2. ***date*_full-concatenated-dataframe.csv**: This file is the final output of the main workflow. It has applied all filtering and de-duplication steps, trimmed the listed variables to a select few for readability, and has added some categorical variables (e.g., whether a repository is part of GREI). Variables are as follows:
+* repository: this is a renamed variable that was pulled directly from DataCite (as 'publisher').
+* doi: the DOI, without the URL prefix.
+* publicationYear: a variable pulled directly from DataCite (as 'publisher_year')
+* title: a variable pulled directly from DataCite (as 'title')
+* first_author: a variable pulled directly from DataCite (subsetting the 'creators' field for creator names)
+* first_affiliation: a variable pulled directly from DataCite (subsetting the 'creators' field for affiliation names)
+* source: if no cross-validation is run, this will always be 'DataCite' as the only queried source. If cross-validation is run and recovers datasets not returned by DataCite, it will list the host repository
+* type: presently a non-varying variable that will always list 'dataset' (DataCite schema)
+* repository2: a categorical variable used to isolate certain repositories for graphing by lumping most into an 'Other' bin. Here, the code will return Dryad, Zenodo, and our IR, the Texas Data Repository (TDR) as separate and group all others under 'Other.'
+* UT_lead: binary variable for whether the first author is affiliated with the focal institution (UT Austin in this case)
+* non_TDR_IR: binary variable for whether the repository is an institutional repository that is not that of the focal institution (UT Austin, TDR)
+* US_federal: binary variable for whether the repository is a federally managed repository (using defined list of strings/terms)
+* GREI: binary variable for whether the repository is a part of the Generalist Repository Ecosystem Initiative (GREI)
+
+If you run the cross-validation process, the script will return a list of datasets from a specific repository that were retrieved from DataCite but not from that repository's API and vice versa (e.g., ***date*_DataCite-into-Dryad_joint-unmatched-dataframe.csv**).
+
+If you run the first Figshare workflow, it will output a file with a few fields from Crossref in a CSV (***date*_figshare-datasets-with-article-info.csv**), including the publisher (e.g,. 'Springer Nature'), the specific journal, the DOI of the article, a list of the article authors, the title of the article, and the publication date of the article.
+
+If you run the second Figshare workflow, it will output two different files. The first is the result of merging together the list of datasets from DataCite with the list of articles from OpenAlex, ***date*_figshare-discovery.csv**. This file contains some of the core fields from DataCite that are in the ***date*_full-concatenated-dataframe.csv** file (e.g., dataset DOI) and certain fields from OpenAlex (e.g., DOI and title of the article). The second file is ***date*_full-concatenated-dataframe-plus.csv**, which appends the newly discovered Figshare records that do not record affiliation metadata but are linked to university-affiliated articles to the ***date*_full-concatenated-dataframe.csv** file. The source is listed as 'Datacite+' to account for the nuanced workflow. 
+
+If you run the third Figshare workflow, it will output one of two files depending on whether you use OpenAlex or Crossref; the file will look like this: ***date*_*indexer*-articles-with-hypothetical-deposits.csv**. This will return a list of all articles from the queried publisher(s) with a column ('Valid') indicating whether or not a hypothetical DOI was found for an article. There is no assurance that this object is a 'dataset' (in metadata classification or general classification), and there may be other objects of similar or different form. For this reason, these records are not appended to the ***date*_full-concatenated-dataframe.csv** file as they will require more steps to assess.
 
 ## Important caveats
 ### Object classification
@@ -114,9 +144,11 @@ The use of OAI-PMH protocols and large "data dumps" (like the 200 GB [Crossref p
 
 Finally, a number of other relatively well-known specialist repositories that were not detected thus far (e.g., Qualitative Data Repository) will be examined in order to determine how best to ensure their retrieval; this may require inefficient batch capture of all deposits in a repository with subsequent filtering.
 
-## Version notes (2.1.0)
+## Version notes (2.2.0)
 
 The current version scheme follows a MAJOR.MINOR.PATCH format, with a 'major' change involving added functionality or significant revisions to the workflow; a 'minor' change involving addition of accessory files or minor revisions to the workflow (e.g., refactoring); and a 'patch' is a bug fix. We plan to make formal releases synced with a DOI-backed deposit and will reset the version at that point.
+
+Version **2.2.0** refactors the primary workflow and makes minor edits to the README.
 
 Version **2.1.0** adds the summary CSV of publisher-mediated Figshare deposits and makes minor edits to the README, including adding a disclaimer about completeness of records.
 
