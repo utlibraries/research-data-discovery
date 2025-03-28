@@ -10,6 +10,8 @@ from pathlib import Path
 
 #setting timestamp at start of script to calculate run time
 startTime = datetime.now() 
+#creating variable with current date for appending to filenames
+todayDate = datetime.now().strftime("%Y%m%d") 
 
 #read in config file
 parent = os.path.abspath(os.path.join(os.getcwd(), '..'))
@@ -91,11 +93,12 @@ else:
 #filtering for SI
 ##could be expanded to capture 'Code_Location'
 df_plos_SI = df_plos[df_plos['Data_Location'].str.contains('Supplementary Information', na=False)]
+df_NCBI = df_plos[df_plos['Repositories_data'].str.contains('NCBI|Gene Expression Omnibus', na=False)]
 
 #OpenAlex params
 url_openalex = 'https://api.openalex.org/works'
 j = 0
-page_limit_openalex = config['VARIABLES']['PAGE_LIMITS']['openalex']
+page_limit_openalex = config['VARIABLES']['PAGE_LIMITS']['openalex_prod']
 
 params_openalex = {
     'filter': 'authorships.institutions.ror:https://ror.org/00hj54h04,locations.source.host_organization:https://openalex.org/P4310315706', #PLOS ID in OpenAlex
@@ -163,13 +166,23 @@ df_openalex['DOI'] = df_openalex['doi'].str.replace('https://doi.org/', '')
 df_openalex_pruned = df_openalex[['DOI', 'title', 'primary_location.source.display_name']]
 
 #merge PLOS articles with SI into university-affiliated OpenAlex
-openalex_plos = pd.merge(df_openalex_pruned, df_plos_SI, on='DOI', how="left")
+openalex_plos_SI = pd.merge(df_openalex_pruned, df_plos_SI, on='DOI', how="left")
 #create 'Matched' column based on whether OpenAlex field is empty
-openalex_plos['Matched'] = np.where(openalex_plos['Publication_Day'].isnull(), 'Not matched', 'Matched')
+openalex_plos_SI['Matched'] = np.where(openalex_plos_SI['Publication_Day'].isnull(), 'Not matched', 'Matched')
 ##constructs hypothetical S1 file DOI link that could be queried further if desired (code not included here)
-openalex_plos_matched = openalex_plos[openalex_plos['Matched'] == "Matched"]
-openalex_plos_matched['hypothetical_deposit'] = openalex_plos_matched['DOI'] + '.s001'
-openalex_plos_matched.to_csv('accessory-outputs/PLOS-articles-with-data-in-SI.csv', index=False, sep=",")
-print(f'Number of relevant PLOS articles with data location listed as Supp Info: {len(openalex_plos_matched)}\n')
+openalex_plos_SI_matched = openalex_plos_SI[openalex_plos_SI['Matched'] == "Matched"]
+openalex_plos_SI_matched['hypothetical_deposit'] = openalex_plos_SI_matched['DOI'] + '.s001'
+openalex_plos_SI_matched.to_csv(f'accessory-outputs/{todayDate}_PLOS-articles-with-data-in-SI.csv', index=False, sep=",")
+print(f'Number of relevant PLOS articles with data location listed as Supp Info: {len(openalex_plos_SI_matched)}\n')
+
+#merge PLOS articles with NCBI data into university-affiliated OpenAlex
+openalex_plos_NCBI = pd.merge(df_openalex_pruned, df_NCBI, on='DOI', how="left")
+#create 'Matched' column based on whether OpenAlex field is empty
+openalex_plos_NCBI['Matched'] = np.where(openalex_plos_NCBI['Publication_Day'].isnull(), 'Not matched', 'Matched')
+##constructs hypothetical S1 file DOI link that could be queried further if desired (code not included here)
+openalex_plos_NCBI_matched = openalex_plos_NCBI[openalex_plos_NCBI['Matched'] == "Matched"]
+openalex_plos_NCBI_matched.to_csv(f'accessory-outputs/{todayDate}_PLOS-articles-with-data-in-NCBI.csv', index=False, sep=",")
+print(f'Number of relevant PLOS articles with data location listed as NCBI: {len(openalex_plos_NCBI_matched)}\n')
+
 print(f"Time to run: {datetime.now() - startTime}")
 print("Done.")
