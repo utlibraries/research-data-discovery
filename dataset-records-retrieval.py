@@ -20,12 +20,10 @@ import xml.etree.ElementTree as ET
 test = False
 #toggle for cross-validation steps
 crossValidate = False
-<<<<<<< Updated upstream
 ##toggle for Dataverse cross-validation specifically
 dataverse = False
 #if you have done a previous DataCite retrieval and don't want to re-run the entire main process (skip to Figshare steps)
 loadPreviousData = False
-=======
 #toggles for executing Figshare processes (see README for details)
 figshareArticleLink = False
 figshareWorkflow1 = False
@@ -39,7 +37,6 @@ loadPreviousDataPlus = False
 ncbiWorkflow = False
 #toggle for skipping web retrieval of NCBI data (just XML to dataframe conversion)
 loadNCBIdata = False
->>>>>>> Stashed changes
 
 #figshare workflow toggles
 ##identifying which publishers/articles are linked to figshare deposits that do have affiliation metadata
@@ -832,19 +829,17 @@ if not loadPreviousData and not loadPreviousDataPlus:
             df_datacite_dataverse_joint_unmatched_pruned['source'] = 'DataCite'
             df_datacite_dataverse_joint_unmatched_pruned['repository'] = 'Texas Data Repository'
 
-<<<<<<< Updated upstream
             df_datacite_dataverse_combined = pd.concat([df_dataverse_pruned_select, df_datacite_dataverse_joint_unmatched_pruned], ignore_index=True)
             df_datacite_dataverse_combined_dedup = df_datacite_dataverse_combined.drop_duplicates(subset=['doi'],keep='first')
             print("Number of unique entries in Dataverse: " + repr(len(df_datacite_dataverse_combined_dedup))+ "\n")
             df_datacite_dataverse_combined_dedup['repository2'] = 'Texas Data Repository'
             df_datacite_dataverse_combined_dedup['UT_lead'] = df_datacite_dataverse_combined_dedup['first_author'].str.contains('Austin', case=False, na=False).map({True: 'affiliated', False: 'not affiliated'})
-=======
+        
         df_datacite_dataverse_combined = pd.concat([df_dataverse_pruned_select, df_datacite_dataverse_joint_unmatched_pruned], ignore_index=True)
         df_datacite_dataverse_combined_dedup = df_datacite_dataverse_combined.drop_duplicates(subset=['doi'],keep='first')
         print("Number of unique entries in Dataverse: " + repr(len(df_datacite_dataverse_combined_dedup))+ "\n")
         df_datacite_dataverse_combined_dedup['repository2'] = 'Texas Data Repository'
         df_datacite_dataverse_combined_dedup['uni_lead'] = df_datacite_dataverse_combined_dedup['first_author'].str.contains('Austin', case=False, na=False).map({True: 'affiliated', False: 'not affiliated'})
->>>>>>> Stashed changes
 
         #Zenodo
         df_zenodo_pruned_select = df_zenodo_pruned[["doi","publicationYear_zen", "title_zen","first_author_zen", "first_affiliation_zen"]]
@@ -870,11 +865,8 @@ if not loadPreviousData and not loadPreviousDataPlus:
     df_datacite_remainder_pruned_select = df_datacite_remainder_pruned[['repository', 'doi', 'publicationYear', 'title', 'first_author', 'first_affiliation', 'source', 'type']] 
     df_datacite_remainder_pruned_select['repository2'] = 'Other'
     df_datacite_remainder_pruned_select['first_affiliation'] = df_datacite_remainder_pruned_select['first_affiliation'].fillna('None')
-<<<<<<< Updated upstream
     df_datacite_remainder_pruned_select['UT_lead'] = df_datacite_remainder_pruned_select['first_affiliation'].str.contains('Austin', case=False, na=False).map({True: 'affiliated', False: 'not affiliated'})
-=======
     df_datacite_remainder_pruned_select['uni_lead'] = df_datacite_remainder_pruned_select['first_affiliation'].str.contains('Austin', case=False, na=False).map({True: 'affiliated', False: 'not affiliated'})
->>>>>>> Stashed changes
 
     #final collation
     if crossValidate and dataverse:
@@ -1190,13 +1182,10 @@ if figshareWorkflow2:
     new_figshare['GREI'] = "GREI member"
 
     df_all_repos_plus = pd.concat([df_all_repos, new_figshare], ignore_index=True)
-<<<<<<< Updated upstream
     #de-duplicating in case some DOIs were caught twice (for the few publishers that do cross-walk affiliation metadata), you could use a sorting method to determine which one to 'keep'; the default will retain the ones returned from the main workflow
     df_all_repos_plus_dedup = df_all_repos_plus.drop_duplicates(subset='doi', keep="first")
     df_all_repos_plus_dedup.to_csv(f"outputs/{todayDate}_full-concatenated-dataframe-plus.csv")
-=======
     df_all_repos_plus.to_csv(f"outputs/{todayDate}_full-concatenated-dataframe-plus-figshare.csv", index=False)
->>>>>>> Stashed changes
 
 ### This codeblock identifies publishers known to create figshare deposits (can be any object resource type) with a ".s00*" system, finds affiliated articles, constructs a hypothetical figshare DOI for them, and tests its existence ###
 # !! Warning: Depending on the number of articles, this can be an extremely time-intensive process !! #
