@@ -1,5 +1,4 @@
 from datetime import datetime
-from pathlib import Path
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -29,7 +28,7 @@ loadPreviousData = False
 ##identifying which publishers/articles are linked to figshare deposits that do have affiliation metadata
 figshareWorkflow1 = False
 ##looking for datasets with a journal publisher listed as publisher, X-ref'ing with university articles from that publisher
-figshareWorkflow2 = True
+figshareWorkflow2 = False
 ##finding university articles from publisher that uses certain formula for Figshare DOIs, construct hypothetical DOI, test if it exists
 figshareWorkflow3 = False
 ##retrieving file-level information for Figshare deposits
