@@ -24,27 +24,25 @@ crossValidate = False
 dataverse = False
 #if you have done a previous DataCite retrieval and don't want to re-run the entire main process (skip to Figshare steps)
 loadPreviousData = False
-#toggles for executing Figshare processes (see README for details)
-figshareArticleLink = False
-figshareWorkflow1 = False
-figshareWorkflow2 = False
-figshareValidator = True
-#toggle to load main dataset
-loadPreviousData = True
-#toggle to load main dataset + Figshare
-loadPreviousDataPlus = False
-#toggle for executing NCBI process
-ncbiWorkflow = False
-#toggle for skipping web retrieval of NCBI data (just XML to dataframe conversion)
-loadNCBIdata = False
 
-#figshare workflow toggles
+#toggles for executing Figshare processes (see README for details)
 ##identifying which publishers/articles are linked to figshare deposits that do have affiliation metadata
 figshareWorkflow1 = False
 ##looking for datasets with a journal publisher listed as publisher, X-ref'ing with university articles from that publisher
-figshareWorkflow2 = False
+figshareWorkflow2 = True
 ##finding university articles from publisher that uses certain formula for Figshare DOIs, construct hypothetical DOI, test if it exists
 figshareWorkflow3 = False
+##retrieving file-level information for Figshare deposits
+figshareValidator = False
+
+#toggle to load main dataset
+loadPreviousData = False
+#toggle to load main dataset + Figshare
+loadPreviousDataPlus = False
+#toggle for executing NCBI process
+ncbiWorkflow = True
+#toggle for skipping web retrieval of NCBI data (just XML to dataframe conversion)
+loadNCBIdata = False
 
 #setting timestamp to calculate run time
 startTime = datetime.now() 
