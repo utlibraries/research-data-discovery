@@ -27,17 +27,17 @@ if test:
         os.mkdir("test")
         print("test directory has been created")
     os.chdir('test')
-    if os.path.isdir("outputs"):
-        print("test outputs directory found - no need to recreate")
+    if os.path.isdir("accessory-outputs"):
+        print("test accessory outputs directory found - no need to recreate")
     else:
-        os.mkdir("outputs")
-        print("test outputs directory has been created")
+        os.mkdir("accessory-outputs")
+        print("test accessory outputs directory has been created")
 else:
-    if os.path.isdir("outputs"):
-        print("outputs directory found - no need to recreate")
+    if os.path.isdir("accessory-outputs"):
+        print("accessory outputs directory found - no need to recreate")
     else:
-        os.mkdir("outputs")
-        print("outputs directory has been created")
+        os.mkdir("accessory-outputs")
+        print("accessory outputs directory has been created")
 
 #API endpoints
 url_datacite = "https://api.datacite.org/dois"
@@ -151,7 +151,7 @@ for item in data_datacite:
     })
 
 df_datacite_initial = pd.json_normalize(data_select_datacite)
-df_datacite_initial.to_csv(f"outputs/{todayDate}_datacite-ror-retrieval.csv")
+df_datacite_initial.to_csv(f"accessory-outputs/{todayDate}_datacite-ror-retrieval.csv")
 
 
 ### The below code is mostly duplicated from the main codebase but may not be used b/c it is unlikely that all of these repositories will be retrieved via a ROR-based query ###
@@ -178,7 +178,7 @@ df_datacite_v2 = pd.concat([df_datacite_lineageRepos, lineageRepos_deduplicated]
 
 #standardizing specific repository name that has three permutations; may not be relevant for other institutions
 df_datacite_v2.loc[df_datacite_v2['publisher'].str.contains('Digital Rocks', case=False), 'publisher'] = 'Digital Rocks Portal'
-df_datacite_v2.to_csv(f"outputs/{todayDate}_datacite-ror-retrieval-filtered.csv")
+df_datacite_v2.to_csv(f"accessory-outputs/{todayDate}_datacite-ror-retrieval-filtered.csv")
 print(f"Number of ROR-affiliated datasets left after cleaning: {len(df_datacite_v2)}\n")
 
 print("Done.\n")

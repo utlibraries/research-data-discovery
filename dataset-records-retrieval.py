@@ -39,7 +39,7 @@ loadPreviousData = False
 #toggle to load main dataset + Figshare
 loadPreviousDataPlus = False
 #toggle for executing NCBI process
-ncbiWorkflow = True
+ncbiWorkflow = False
 #toggle for skipping web retrieval of NCBI data (just XML to dataframe conversion)
 loadNCBIdata = False
 
@@ -192,10 +192,9 @@ def retrieve_all_data_datacite(url, params):
 
     all_data_datacite.extend(data['data'])
 
-    current_url = data.get('links', {}).get('next', None)
     total_count = data.get('meta', {}).get('total', None)
     total_pages = math.ceil(total_count/config['VARIABLES']['PAGE_SIZES']['datacite'])
-    
+
     current_url = data.get('links', {}).get('next', None)
     
     while current_url and page_start_datacite < page_limit_datacite:
@@ -443,7 +442,12 @@ if not loadPreviousData and not loadPreviousDataPlus:
         attributes = item.get('attributes', {})
         doi = attributes.get('doi', None)
         publisher = attributes.get('publisher', "")
-        publisher_year = attributes.get('publicationYear', "")
+        # publisher_year = attributes.get('publicationYear', "") #temporarily disabling due to Dryad metadata issue
+        registered = attributes.get('registered', "")
+        if registered:
+            publisher_year = datetime.fromisoformat(registered[:-1]).year
+        else:
+            publisher_year = None
         title=attributes.get('titles', [{}])[0].get('title',"")
         creators = attributes.get('creators', [{}])
         creatorsNames = [creator.get('name', '') for creator in creators]
@@ -489,9 +493,9 @@ if not loadPreviousData and not loadPreviousDataPlus:
     pattern = '|'.join([f'({perm})' for perm in ut_variations])
     #search for permutations in the 'affiliations' column
     df_datacite_initial['affiliation_source'] = df_datacite_initial.apply(
-    lambda row: 'creator.affiliation' if pd.Series(row['creatorsAffiliations']).str.contains(pattern, case=False, na=False).any()
+    lambda row: 'creator.affiliationName' if pd.Series(row['creatorsAffiliations']).str.contains(pattern, case=False, na=False).any()
     else ('creator.name' if pd.Series(row['creatorsNames']).str.contains(pattern, case=False, na=False).any()
-    else ('contributor.affiliation' if pd.Series(row['contributorsAffiliations']).str.contains(pattern, case=False, na=False).any()
+    else ('contributor.affiliationName' if pd.Series(row['contributorsAffiliations']).str.contains(pattern, case=False, na=False).any()
     else ('contributor.name' if pd.Series(row['contributorsNames']).str.contains(pattern, case=False, na=False).any() else None))),
     axis=1)
     #pull out the identified permutation and put it into a new column
@@ -830,7 +834,7 @@ if not loadPreviousData and not loadPreviousDataPlus:
             df_datacite_dataverse_combined_dedup = df_datacite_dataverse_combined.drop_duplicates(subset=['doi'],keep='first')
             print("Number of unique entries in Dataverse: " + repr(len(df_datacite_dataverse_combined_dedup))+ "\n")
             df_datacite_dataverse_combined_dedup['repository2'] = 'Texas Data Repository'
-            df_datacite_dataverse_combined_dedup['UT_lead'] = df_datacite_dataverse_combined_dedup['first_author'].str.contains('Austin', case=False, na=False).map({True: 'affiliated', False: 'not affiliated'})
+            df_datacite_dataverse_combined_dedup['uni_lead'] = df_datacite_dataverse_combined_dedup['first_author'].str.contains('Austin', case=False, na=False).map({True: 'affiliated', False: 'not affiliated'})
         
         df_datacite_dataverse_combined = pd.concat([df_dataverse_pruned_select, df_datacite_dataverse_joint_unmatched_pruned], ignore_index=True)
         df_datacite_dataverse_combined_dedup = df_datacite_dataverse_combined.drop_duplicates(subset=['doi'],keep='first')
@@ -862,7 +866,7 @@ if not loadPreviousData and not loadPreviousDataPlus:
     df_datacite_remainder_pruned_select = df_datacite_remainder_pruned[['repository', 'doi', 'publicationYear', 'title', 'first_author', 'first_affiliation', 'source', 'type']] 
     df_datacite_remainder_pruned_select['repository2'] = 'Other'
     df_datacite_remainder_pruned_select['first_affiliation'] = df_datacite_remainder_pruned_select['first_affiliation'].fillna('None')
-    df_datacite_remainder_pruned_select['UT_lead'] = df_datacite_remainder_pruned_select['first_affiliation'].str.contains('Austin', case=False, na=False).map({True: 'affiliated', False: 'not affiliated'})
+    df_datacite_remainder_pruned_select['uni_lead'] = df_datacite_remainder_pruned_select['first_affiliation'].str.contains('Austin', case=False, na=False).map({True: 'affiliated', False: 'not affiliated'})
     df_datacite_remainder_pruned_select['uni_lead'] = df_datacite_remainder_pruned_select['first_affiliation'].str.contains('Austin', case=False, na=False).map({True: 'affiliated', False: 'not affiliated'})
 
     #final collation
@@ -978,7 +982,12 @@ if figshareWorkflow1:
         attributes = data.get('attributes', {})
         doi_dc = attributes.get('doi', None)
         publisher_dc = attributes.get('publisher', "")
-        publisher_year_dc = attributes.get('publicationYear', "")
+        # publisher_year_dc = attributes.get('publicationYear', "")
+        registered = attributes.get('registered', "")
+        if registered:
+            publisher_year_dc = datetime.fromisoformat(registered[:-1]).year
+        else:
+            publisher_year_dc = None
         title_dc = attributes.get('titles', [{}])[0].get('title', "")
         related_identifiers = attributes.get('relatedIdentifiers', [])
         types = attributes.get('types', {})
@@ -1088,7 +1097,12 @@ if figshareWorkflow2:
                 attributes = item.get('attributes', {})
                 doi_dc = attributes.get('doi', None)
                 publisher_dc = attributes.get('publisher', "")
-                publisher_year_dc = attributes.get('publicationYear', "")
+                # publisher_year_dc = attributes.get('publicationYear', "")
+                registered = attributes.get('registered', "")
+                if registered:
+                    publisher_year_dc = datetime.fromisoformat(registered[:-1]).year
+                else:
+                    publisher_year_dc = None
                 title_dc = attributes.get('titles', [{}])[0].get('title', "")
                 creators_dc = attributes.get('creators', [{}])
                 affiliations_dc = [affiliation.get('name', "") for creator in creators_dc for affiliation in creator.get('affiliation', [{}])]
@@ -1174,8 +1188,8 @@ if figshareWorkflow2:
     new_figshare['repository'] = "figshare"
     new_figshare['source'] = "DataCite+" #slight differentiation from records only retrieved from DataCite
     new_figshare['repository2'] = "figshare"
-    new_figshare["non-TDR IR"] = "not university or TDR"
-    new_figshare['US federal'] = "not federal US repo"
+    new_figshare["non_TDR_IR"] = "not university or TDR"
+    new_figshare['US_federal'] = "not federal US repo"
     new_figshare['GREI'] = "GREI member"
 
     df_all_repos_plus = pd.concat([df_all_repos, new_figshare], ignore_index=True)
@@ -1523,8 +1537,8 @@ if ncbiWorkflow:
     ncbi_df_select['source'] = "NCBI"
     ncbi_df_select['type'] = "Dataset"
     ncbi_df_select['repository2'] = "NCBI"
-    ncbi_df_select["non-TDR IR"] = "not university or TDR"
-    ncbi_df_select['US federal'] = "Federal US repo"
+    ncbi_df_select["non_TDR_IR"] = "not university or TDR"
+    ncbi_df_select['US_federal'] = "Federal US repo"
     ncbi_df_select['GREI'] = "not GREI member"
 
     if loadPreviousDataPlus:
