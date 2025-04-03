@@ -1,12 +1,14 @@
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 # Scripted process for retrieving metadata on institutional-affiliated research dataset publications
 
 ## Metadata
-* *Version*: 3.0.0.
-* *Released*: 2025/03/28
+* *Version*: 3.1.1.
+* *Released*: 2025/04/03
 * *Author(s)*: Bryan Gee (UT Libraries, University of Texas at Austin; bryan.gee@austin.utexas.edu; ORCID: [0000-0003-4517-3290](https://orcid.org/0000-0003-4517-3290))
 * *Contributor(s)*: None
 * *License*: [MIT](https://opensource.org/license/mit)
-* *README last updated*: 2025/03/28
+* *README last updated*: 2025/04/03
 
 ## Table of Contents
 1. [Purpose](#purpose)
@@ -23,7 +25,7 @@ This repository contains Python code that is designed to gather and organize met
 1. **dataset-records-retrieval.py**: This is the primary Python script for conducting large-scale records retrieval through the DataCite API. It also includes functionality for using a set of different APIs to try and identify deposits on Figshare that lack affiliation metadata but that can be connected to an article with at least one author from a focal institution.
 2. **config-template.json**: This is the config file that contains most parameters and that stores API keys. This file should be populated with personal information as necessary, with affiliation permutations modified if applying this to a different institution, and renamed as *config.json* in order for scripts to work.
 3. **journal-list.json**: This file contains the official journal names and ISSNs to be queried as part of one of the possible Figshare workflows (construction of a hypothetical SI DOI and testing its existence). This file contains all PLOS titles as an example but could be expanded to any other journal that does uses the model of appending '.s00x' to the article DOI for mediated Figshare deposits. 
-4. **accessory-scripts/dataset-records-retrieval-visualization.py**: This file contains the code used to generate visuals for the 2025 RDAP Summit.
+4. **accessory-scripts/dataset-records-retrieval-visualization.py**: This file contains the code used to generate visuals for the 2025 RDAP Summit and the CNI 2025 Spring Meeting.
 5. **accessory-scripts/plos-osi-search.py**: This file contains the code used to retrieve the latest version of the [PLOS Open Science Indicators (OSI) Dataset](https://plos.figshare.com/articles/dataset/PLOS_Open_Science_Indicators/21687686), identifies articles that list data as having been shared in part or in whole through Supplemental Information (mediated Figshare deposit for all PLOS titles), retrieves a list of PLOS articles with at least one author from a focal institution, and searches for matches to identify PLOS articles co-authored by a university researcher where 'data' were deposited on Figshare through the mediated process. It does the same for affiliated articles that link to NCBI deposits (note that this could be reuse rather than novel generation).
 6. **accessory-scripts/datacite-ror-query.py**: This file contains a trimmed version of main workflow and uses the ROR identifier (specified in the *config.json* file) to search for affiliated datasets instead of a single or multiple affiliation name strings. The only purpose for this script is to quantify the degree to which a ROR-based query will result in an incomplete retrieval due to lack of widespread adoption of ROR / re-curation of deposits published prior to ROR integration.
 7. **accessory-scripts/datacite-figshare-partner-query.py**: This file is an adaptation of one of the secondary Figshare workflows that identifies journal-mediated, DataCite-minted deposits without affiliation metadata and attempts to connect them to articles that were (co)authored by a researcher at a focal institution. In the workflow in the main codebase, a publisher (e.g., 'Taylor & Francis') and the resourceTypeGeneral of 'dataset' are specified, with the script set to loop through a list of publishers. In this accessory script, only a single publisher is queried, but the query is broadened to capture any resource type (e.g., 'audiovisual', 'image'); note that this has to be time-capped for the past few years to keep the scale of the retrieval manageable, which could be on the order of hundreds of thousands of records for just one publisher. The script runs the same cross-matching of DataCite-minted deposits against a list of affiliated articles retrieved through OpenAlex. The purpose of this workflow is to explore whether some objects not labeled as 'dataset' might contain data and whether some objects labeled as 'dataset' might not be data. **The use of file formats to attempt to predict the 'data' nature of an object is still very preliminary.** It is intended to lay the foundation for a process in the main workflow to more rigorously assess the contents of objects labeled as 'dataset.'
@@ -164,9 +166,13 @@ This workflow is intended to be continually developed by members of the Research
 
 The use of OAI-PMH protocols and large "data dumps" (like the 200 GB [Crossref public data file](https://www.crossref.org/learning/public-data-file/)) are under consideration for future incorporation, but a secondary objective of this workflow is to employ code and data sources that are both accessible and computationally tractable for a wide range of potential users who may not have access to above-average storage or computing capacities or even much exposure to code. 
 
-## Version notes (3.0.0)
+## Version notes (3.1.1)
 
 The current version scheme follows a MAJOR.MINOR.PATCH format, with a 'major' change involving added functionality or significant revisions to the workflow; a 'minor' change involving addition of accessory files or minor revisions to the workflow (e.g., refactoring); and a 'patch' is a bug fix. We plan to make formal releases synced with a DOI-backed deposit and will reset the version at that point.
+
+Version **3.1.1.** temporarily reworks the retrieval of the publication year from DataCite, switching to a different variable (*registered*) after discovery of an issue with how Dryad has cross-walked metadata for many recently published datasets for the previously utilized *publicationYear*. It also fixes the code to create several columns for the Figshare and NCBI workarounds to align with the remaining output. The accessory visualization script has also been updated with code for a line graph comparing annual publishing volumes of UT-linked deposits in select repositories and a toggle for different export formats (TIFF vs. PNG). This script also incorporates the first implementation of a process to move older versions of files to a nested subdirectory. The quick ROR-based DataCite query script has been updated to direct the outputs to a different folder.
+
+Version **3.0.1** fixes the code that identifies which permutation of an institutional name was detected by the general DataCite query to prioritize an exact match over a partial match. It also fixes a minor bug in the accessory visualization script where an off-orange color was specified for one plot's title.
 
 Version **3.0.0** adds functionality for retrieving file-level metadata for affiliated Figshare deposits and using a basic set of rules to assess whether they are properly characterized as 'datasets' and functionality for programmatic retrieval of affiliated NCBI Bioprojects. Extra functionality is added to the *config.json* file for the second Figshare workflow (a map of publisher names as listed in DataCite and their OpenAlex code; test env page limits for OpenAlex API) and more permutations of 'UT Austin' were added based on NCBI data (although it is not expected that most of these will be used outside of NCBI, like some with typos). **figshare-plos-osi-search.py** was renamed to **plos-osi-search.py** after being expanded to do a quick-check on NCBI-linked articles as well. Two accessory scripts were added: **datacite-ror-query.py** and **datacite-figshare-partner-query.py**.
 
