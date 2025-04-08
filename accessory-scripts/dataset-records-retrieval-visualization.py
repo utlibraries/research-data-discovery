@@ -92,8 +92,8 @@ plt.savefig(plot_path, format=plotFormat)
 print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
 
 ### Affiliation variation
-if tiff:
-    plot_filename = f"{todayDate}_affiliation-permutation-counts.{plotFormat}"
+plot_filename = f"{todayDate}_affiliation-permutation-counts.{plotFormat}"
+affiliation_source_counts = df_datacite['affiliation_source'].value_counts(ascending=True)
 affiliation_permutation_counts = df_datacite['affiliation_permutation'].value_counts(ascending=True)
     
 fig, ax1 = plt.subplots(figsize=(10, 7))

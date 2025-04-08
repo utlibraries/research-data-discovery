@@ -28,7 +28,7 @@ loadPreviousData = False
 ##identifying which publishers/articles are linked to figshare deposits that do have affiliation metadata
 figshareWorkflow1 = False
 ##looking for datasets with a journal publisher listed as publisher, X-ref'ing with university articles from that publisher
-figshareWorkflow2 = False
+figshareWorkflow2 = True
 ##finding university articles from publisher that uses certain formula for Figshare DOIs, construct hypothetical DOI, test if it exists
 figshareWorkflow3 = False
 ##retrieving file-level information for Figshare deposits
@@ -39,7 +39,7 @@ loadPreviousData = False
 #toggle to load main dataset + Figshare
 loadPreviousDataPlus = False
 #toggle for executing NCBI process
-ncbiWorkflow = False
+ncbiWorkflow = True
 #toggle for skipping web retrieval of NCBI data (just XML to dataframe conversion)
 loadNCBIdata = False
 
@@ -468,6 +468,8 @@ if not loadPreviousData and not loadPreviousDataPlus:
             relatedIdentifier = identifier.get('relatedIdentifier', '')
         types = attributes.get('types', {})
         resourceType = types.get('resourceTypeGeneral', '')
+        rights_list = attributes.get('rightsList', [])
+        rights = [right.get('rights', 'Rights unclear') for right in rights_list]
         data_select_datacite.append({
             "doi": doi,
             "publisher": publisher,
@@ -484,7 +486,8 @@ if not loadPreviousData and not loadPreviousDataPlus:
             "relationType": relationType,
             "relatedIdentifier": relatedIdentifier,
             "containerIdentifier": container_identifier,
-            "type": resourceType
+            "type": resourceType,
+            "rights": rights
         })
 
     df_datacite_initial = pd.json_normalize(data_select_datacite)
@@ -926,6 +929,25 @@ if not loadPreviousData and not loadPreviousDataPlus:
     df_all_repos['US_federal'] = np.where(df_all_repos['repository'].str.contains('NOAA|NIH|NSF|U.S.|DOE|DOD|DOI|National|Designsafe', case=True), 'Federal US repo', 'not federal US repo')
     df_all_repos['GREI'] = np.where(df_all_repos['repository'].str.contains('Dryad|figshare|Zenodo|Vivli|Mendeley|Open Science Framework', case=False), 'GREI member', 'not GREI member')
 
+    # #standardizing licenses
+    # df_all_repos['rights'] = df_all_repos['rights'].apply(lambda x: ' '.join(x) if isinstance(x, list) else x).astype(str).str.strip('[]')
+    # df_all_repos['rights_standardized'] = 'Rights unclear'  #default value
+    # df_all_repos.loc[df_all_repos['rights'].str.contains('Creative Commons Zero|CC0'), 'rights_standardized'] = 'CC0'
+    # df_all_repos.loc[df_all_repos['rights'].str.contains('Creative Commons Attribution Non Commercial Share Alike'), 'rights_standardized'] = 'CC BY-NC-SA'
+    # df_all_repos.loc[df_all_repos['rights'].str.contains('Creative Commons Attribution Non Commercial'), 'rights_standardized'] = 'CC BY-NC'
+    # df_all_repos.loc[df_all_repos['rights'].str.contains('Creative Commons Attribution 3.0|Creative Commons Attribution 4.0|Creative Commons Attribution-NonCommercial'), 'rights_standardized'] = 'CC BY'
+    # df_all_repos.loc[df_all_repos['rights'].str.contains('GNU General Public License'), 'rights_standardized'] = 'GNU GPL'
+    # df_all_repos.loc[df_all_repos['rights'].str.contains('Apache License'), 'rights_standardized'] = 'Apache'
+    # df_all_repos.loc[df_all_repos['rights'].str.contains('MIT License'), 'rights_standardized'] = 'MIT'
+    # df_all_repos.loc[df_all_repos['rights'].str.contains('BSD'), 'rights_standardized'] = 'BSD'
+    # df_all_repos.loc[df_all_repos['rights'].str.contains('ODC-BY'), 'rights_standardized'] = 'ODC-BY'
+    # df_all_repos.loc[df_all_repos['rights'].str.contains('Open Access'), 'rights_standardized'] = 'Rights unclear'
+    # df_all_repos.loc[df_all_repos['rights'].str.contains('Closed Access'), 'rights_standardized'] = 'Restricted access'
+    # df_all_repos.loc[df_all_repos['rights'].str.contains('Restricted Access'), 'rights_standardized'] = 'Restricted access'
+    # df_all_repos.loc[df_all_repos['rights'].str.contains('Databrary'), 'rights_standardized'] = 'Custom terms'
+    # df_all_repos.loc[df_all_repos['rights'].str.contains('UCAR'), 'rights_standardized'] = 'Custom terms'
+    # df_all_repos.loc[df_all_repos['rights'] == '', 'rights_standardized'] = 'Rights unclear'
+
     df_all_repos.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe.csv', index=False)
 
 ###### FIGSHARE WORKFLOW ######
@@ -992,6 +1014,8 @@ if figshareWorkflow1:
         related_identifiers = attributes.get('relatedIdentifiers', [])
         types = attributes.get('types', {})
         resourceType = types.get('resourceTypeGeneral', '')
+        rights_list = attributes.get('rightsList', [])
+        rights = [right.get('rights', 'Rights unclear') for right in rights_list]
         for rel in related_identifiers: #'explodes' deposits with multiple relatedIdentifiers
             data_figshare_select.append({
                 "doi": doi_dc,
@@ -1001,7 +1025,8 @@ if figshareWorkflow1:
                 "relationType": rel.get('relationType'),
                 "relatedIdentifier": rel.get('relatedIdentifier'),
                 "relatedIdentifierType": rel.get('relatedIdentifierType'),
-                "resourceType": resourceType
+                "resourceType": resourceType,
+                "rights": rights
             })
 
     df_figshare_initial = pd.json_normalize(data_figshare_select)
@@ -1181,6 +1206,15 @@ if figshareWorkflow2:
     new_figshare = df_openalex_datacite_dedup[df_openalex_datacite_dedup['doi'].notnull()]
     new_figshare.to_csv(f"outputs/{todayDate}_figshare-discovery-deduplicated.csv", index=False)
     new_figshare = new_figshare[["doi","publicationYear","title", "first_author", "first_affiliation", "type"]]
+
+    #standardizing licenses
+    # new_figshare['rights'] = new_figshare['rights'].apply(lambda x: ' '.join(x) if isinstance(x, list) else x).astype(str).str.strip('[]')
+    # new_figshare['rights_standardized'] = 'Rights unclear'  #default value
+    # new_figshare.loc[new_figshare['rights'].str.contains('Creative Commons Zero|CC0'), 'rights_standardized'] = 'CC0'
+    # new_figshare.loc[new_figshare['rights'].str.contains('Creative Commons Attribution Non Commercial Share Alike'), 'rights_standardized'] = 'CC BY-NC-SA'
+    # new_figshare.loc[new_figshare['rights'].str.contains('Creative Commons Attribution Non Commercial'), 'rights_standardized'] = 'CC BY-NC'
+    # new_figshare.loc[new_figshare['rights'].str.contains('Creative Commons Attribution 3.0|Creative Commons Attribution 4.0|Creative Commons Attribution-NonCommercial'), 'rights_standardized'] = 'CC BY'
+    # new_figshare.loc[new_figshare['rights'] == '', 'rights_standardized'] = 'Rights unclear'
 
     #adding in columns to reconcatenate with full dataset
     new_figshare['first_affiliation'] = new_figshare['first_affiliation'].apply(lambda x: ' '.join(x) if isinstance(x, list) else x)    
@@ -1540,6 +1574,8 @@ if ncbiWorkflow:
     ncbi_df_select["non_TDR_IR"] = "not university or TDR"
     ncbi_df_select['US_federal'] = "Federal US repo"
     ncbi_df_select['GREI'] = "not GREI member"
+    # ncbi_df_select['rights'] = "Rights unclear"
+    # ncbi_df_select['rights_standardized'] = "Rights unclear"
 
     if loadPreviousDataPlus:
         #for reading in previously generated file of all associated datasets
