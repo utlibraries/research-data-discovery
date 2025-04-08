@@ -3,12 +3,12 @@
 # Scripted process for retrieving metadata on institutional-affiliated research dataset publications
 
 ## Metadata
-* *Version*: 3.1.1.
-* *Released*: 2025/04/03
+* *Version*: 3.1.2.
+* *Released*: 2025/04/07
 * *Author(s)*: Bryan Gee (UT Libraries, University of Texas at Austin; bryan.gee@austin.utexas.edu; ORCID: [0000-0003-4517-3290](https://orcid.org/0000-0003-4517-3290))
 * *Contributor(s)*: None
 * *License*: [MIT](https://opensource.org/license/mit)
-* *README last updated*: 2025/04/03
+* *README last updated*: 2025/04/07
 
 ## Table of Contents
 1. [Purpose](#purpose)
@@ -166,9 +166,11 @@ This workflow is intended to be continually developed by members of the Research
 
 The use of OAI-PMH protocols and large "data dumps" (like the 200 GB [Crossref public data file](https://www.crossref.org/learning/public-data-file/)) are under consideration for future incorporation, but a secondary objective of this workflow is to employ code and data sources that are both accessible and computationally tractable for a wide range of potential users who may not have access to above-average storage or computing capacities or even much exposure to code. 
 
-## Version notes (3.1.1)
+## Version notes (3.1.2)
 
 The current version scheme follows a MAJOR.MINOR.PATCH format, with a 'major' change involving added functionality or significant revisions to the workflow; a 'minor' change involving addition of accessory files or minor revisions to the workflow (e.g., refactoring); and a 'patch' is a bug fix. We plan to make formal releases synced with a DOI-backed deposit and will reset the version at that point.
+
+Version **3.1.2** fixes a bug in the data visualization script that accidentally removed the path/filename for one plot. It also begins staging increased retrieval of DataCite fields in the primary workflow.
 
 Version **3.1.1.** temporarily reworks the retrieval of the publication year from DataCite, switching to a different variable (*registered*) after discovery of an issue with how Dryad has cross-walked metadata for many recently published datasets for the previously utilized *publicationYear*. It also fixes the code to create several columns for the Figshare and NCBI workarounds to align with the remaining output. The accessory visualization script has also been updated with code for a line graph comparing annual publishing volumes of UT-linked deposits in select repositories and a toggle for different export formats (TIFF vs. PNG). This script also incorporates the first implementation of a process to move older versions of files to a nested subdirectory. The quick ROR-based DataCite query script has been updated to direct the outputs to a different folder.
 
