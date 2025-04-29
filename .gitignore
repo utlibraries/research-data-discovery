@@ -7,7 +7,9 @@ script-archive/
 accessory-scripts/accessory-outputs
 accessory-scripts/inputs
 accessory-scripts/plots
+accessory-scripts/test
 script-sandbox/
+CONTRIBUTING.md
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
