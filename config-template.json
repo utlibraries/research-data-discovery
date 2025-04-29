@@ -9,7 +9,8 @@
     "INSTITUTION":{
         "name": "University of Texas at Austin",
         "uniqueIdentifier": "Austin",
-        "ror": "https://ror.org/00hj54h04"
+        "ror": "https://ror.org/00hj54h04",
+        "filename": "ut-austin"
     },
     "PERMUTATIONS": [
         "The University of Texas at Austin",
