@@ -1321,8 +1321,7 @@ if figshareWorkflow1:
     df_all_repos_plus = pd.concat([df_all_repos, new_figshare], ignore_index=True)
     #de-duplicating in case some DOIs were caught twice (for the few publishers that do cross-walk affiliation metadata), you could use a sorting method to determine which one to 'keep'; the default will retain the ones returned from the main workflow
     df_all_repos_plus_dedup = df_all_repos_plus.drop_duplicates(subset='doi', keep='first')
-    df_all_repos_plus_dedup.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus.csv')
-    df_all_repos_plus.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-figshare.csv', index=False)
+    df_all_repos_plus_dedup.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-figshare.csv', index=False)
 
 ### This codeblock identifies publishers known to create figshare deposits (can be any object resource type) with a '.s00*' system, finds affiliated articles, constructs a hypothetical figshare DOI for them, and tests its existence ###
 # !! Warning: Depending on the number of articles, this can be an extremely time-intensive process !! #
@@ -1702,7 +1701,7 @@ if ncbiWorkflow:
         df_all_repos_plus_ncbi = pd.concat([df_all_repos_plus, ncbi_df_select], ignore_index=True)
         df_all_repos_plus_ncbi.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-figshare-ncbi.csv', index=False)
 
-    ncbi_df_select.to_csv(f'outputs/{todayDate}_NCBI-select-output-aligned.csv', index=False)
+    # ncbi_df_select.to_csv(f'outputs/{todayDate}_NCBI-select-output-aligned.csv', index=False)
 
 #to load in externally queried Crossref data
 if any([loadPreviousData, loadPreviousDataPlus, loadPreviousDataPlusNCBI]) and loadCrossrefData:
