@@ -110,7 +110,14 @@ for item in data_datacite:
     attributes = item.get('attributes', {})
     doi = attributes.get('doi', None)
     publisher = attributes.get('publisher', "")
-    publisher_year = attributes.get('publicationYear', "")
+    # publisher_year = attributes.get('publicationYear', '') #temporarily disabling due to Dryad metadata issue
+    registered = attributes.get('registered', '')
+    if registered:
+        publisher_year = datetime.fromisoformat(registered[:-1]).year
+        publisher_date = datetime.fromisoformat(registered[:-1]).date()
+    else:
+        publisher_year = None
+        publisher_date = None
     title=attributes.get('titles', [{}])[0].get('title',"")
     creators = attributes.get('creators', [{}])
     creatorsNames = [creator.get('name', '') for creator in creators]
