@@ -65,7 +65,7 @@
         },
         "PAGE_LIMITS": {
             "crossref_test": 25,
-            "crossref_prod": 500,
+            "crossref_prod": 700,
             "datacite_test": 5,
             "datacite_prod": 600,
             "openalex_test": 10,
