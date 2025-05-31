@@ -3,12 +3,12 @@
 # Scripted process for retrieving metadata on institutional-affiliated research dataset publications
 
 ## Metadata
-* *Version*: 3.5.0.
-* *Released*: 2025/05/29 (delayed end of sprint 3)
+* *Version*: 3.5.1.
+* *Released*: 2025/05/30
 * *Author(s)*: Bryan Gee (UT Libraries, University of Texas at Austin; bryan.gee@austin.utexas.edu; ORCID: [0000-0003-4517-3290](https://orcid.org/0000-0003-4517-3290))
 * *Contributor(s)*: None
 * *License*: [MIT](https://opensource.org/license/mit)
-* *README last updated*: 2025/05/29 (delayed end of sprint 3)
+* *README last updated*: 2025/05/30
 
 ## Table of Contents
 1. [Purpose](#purpose)
@@ -165,8 +165,10 @@ If you have any questions or comments that don't warrant creating an issue, feel
 ## Contributions
 **Version 3.2.0** added a *CONTRIBUTING.md* file that has been temporarily removed after internal discussion about university policies on distributing open source software. The gist is that there are still some policy details to be sorted out (not just for this project) with our technology transfer office, so we're unable to accept external pull requests at the moment (this does not affect others' ability to fork and modify the repository). We hope this will get clarity in the near future so that it can be opened up. In the interim, if you have ideas of how to improve something (excluding aesthetics), feel free to reach out by email or make an issue.
 
-## Version notes (3.5.0)
+## Version notes (3.5.1)
 The current version scheme follows a MAJOR.MINOR.PATCH format, with a 'major' change involving added functionality or significant revisions to the workflow; a 'minor' change involving addition of accessory files or minor revisions to the workflow (e.g., refactoring); and a 'patch' is a bug fix. We plan to make formal releases synced with a DOI-backed deposit and will reset the version at that point.
+
+Version **3.5.1** is a bug fix related to the primary workflow being refactored for the cross-validation process. 
 
 Version **3.5.0** is a 'moderate' release. It mainly advances some of the metadata assessment steps, both expanding 'as-is' metadata from a DataCite field and calculating some metadata (e.g., number of descriptive words in dataset title; whether code is present [for files with file formats recorded]) based on other existing fields. Additionally, there is some refactoring in the cross-validation process to better streamline the incorporation and processing of datasets that were only found in a repository API and not the DataCite API. Rather than coerce the variably structured fields of interest from each repository's API output into the same format as the DataCite fields, the code now identifies all previously undetected DOIs and then retrieves the same metadata fields as the general capture through the DataCite API. A new accessory script designed exclusively for the preprint (comparison of all timestamps for Dryad datasets in the DataCite and Dryad APIs) is also added.
 

@@ -33,7 +33,7 @@ austin = True
 ##identifying which publishers/articles are linked to figshare deposits that do have affiliation metadata
 figshareKnown = False
 ##looking for datasets with a journal publisher listed as publisher, X-ref'ing with university articles from that publisher
-figshareWorkflow1 = False
+figshareWorkflow1 = True
 ##finding university articles from publisher that uses certain formula for Figshare DOIs, construct hypothetical DOI, test if it exists
 figshareWorkflow2 = False
 ##retrieving file-level information for Figshare deposits
@@ -44,13 +44,13 @@ loadPreviousData = False
 #if you have done a previous DataCite retrieval and Figshare workflow 1 and don't want to re-run these
 loadPreviousDataPlus = False
 #toggle for executing NCBI process
-ncbiWorkflow = False
+ncbiWorkflow = True
 #toggle for skipping web retrieval of NCBI data (just XML to dataframe conversion)
 loadNCBIdata = False
 #toggle for loading previous DataCite + Figshare workflow 1 + NCBI
 loadPreviousDataPlusNCBI = False
 #toggle to load in externally generated Crossref data
-loadCrossrefData = False
+loadCrossrefData = True
 
 #setting timestamp to calculate run time
 startTime = datetime.now() 
@@ -945,6 +945,7 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
             })
 
         df_datacite_new = pd.json_normalize(data_select_datacite_new)
+        df_datacite_new.to_csv(f'outputs/{todayDate}_test.csv')
     if crossValidate:
         df_datacite_all = pd.concat([df_datacite_initial, df_datacite_new], ignore_index=True)
     else:
@@ -976,7 +977,7 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
             )
         ),
     axis=1
-)
+    )
 
     #handling version duplication (Figshare, ICPSR, etc.)
     ##handling duplication of Figshare deposits (parent vs. child with '.v*')
@@ -1092,38 +1093,6 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
     df_datacite['descriptive_word_count_title'] = df_datacite.apply(adjust_descriptive_count, axis=1)
     df_datacite['nondescriptive_word_count_title'] = df_datacite['total_word_count_title'] - df_datacite['descriptive_word_count_title']
 
-    df_datacite.to_csv(f'outputs/{todayDate}_datacite-output-for-metadata-assessment.csv', index=False) 
-
-    #standardizing repositories with multiple versions of name in dataframe
-    ##different institutions may need to add additional repositories; nothing will happen if you don't have any of the ones listed below and don't comment the lines out
-    df_datacite['publisher'] = df_datacite['publisher'].fillna('None')
-    df_datacite.loc[df_datacite['publisher'].str.contains('Digital Rocks', case=False), 'publisher'] = 'Digital Porous Media Portal'
-    df_datacite.loc[df_datacite['publisher'].str.contains('Environmental System Science Data Infrastructure for a Virtual Ecosystem', case=False), 'publisher'] = 'ESS-DIVE'
-    df_datacite.loc[df_datacite['publisher'].str.contains('Texas Data Repository|Texas Research Data Repository', case=False), 'publisher'] = 'Texas Data Repository'
-    df_datacite.loc[df_datacite['publisher'].str.contains('ICPSR', case=True), 'publisher'] = 'ICPSR'
-    df_datacite.loc[df_datacite['publisher'].str.contains('Environmental Molecular Sciences Laboratory', case=True), 'publisher'] = 'Environ Mol Sci Lab'
-    df_datacite.loc[df_datacite['publisher'].str.contains('BCO-DMO', case=True), 'publisher'] = 'Biol Chem Ocean Data Mgmt Office'
-    df_datacite.loc[df_datacite['publisher'].str.contains('Taylor & Francis|SAGE|The Royal Society|SciELO journals', case=True), 'publisher'] = 'figshare'
-    df_datacite.loc[df_datacite['publisher'].str.contains('Oak Ridge', case=True), 'publisher'] = 'Oak Ridge National Laboratory'
-    df_datacite.loc[df_datacite['publisher'].str.contains('PARADIM', case=True), 'publisher'] = 'PARADIM'
-    df_datacite.loc[df_datacite['publisher'].str.contains('4TU', case=True), 'publisher'] = '4TU.ResearchData'
-    df_datacite.loc[df_datacite['doi'].str.contains('zenodo', case=True), 'publisher'] = 'Zenodo'
-
-    #EDGE CASES, likely unnecessary for other universities, but you will need to find your own edge cases
-    ##confusing metadata with UT Austin (but not Dataverse) listed as publisher; have to be manually adjusted over time
-    if austin:
-        # df_datacite.loc[(df_datacite['doi'].str.contains('zenodo')) & (df_datacite['publisher'].str.contains('University of Texas')), 'publisher'] = 'Zenodo' #10.5281/zenodo.10198511
-        # df_datacite.loc[(df_datacite['doi'].str.contains('zenodo')) & (df_datacite['publisher'].str.contains('University of Texas')), 'publisher'] = 'Zenodo' #10.5281/zenodo.10198511
-        df_datacite.loc[(df_datacite['doi'].str.contains('10.11578/dc')) & (df_datacite['publisher'].str.contains('University of Texas')), 'publisher'] = 'Department of Energy (DOE) CODE'
-        ##other edge cases
-        df_datacite.loc[df_datacite['doi'].str.contains('10.23729/547d8c47-3723-4396-8f84-322c02ccadd0'), 'publisher'] = 'Finnish Fairdata' #labeled publisher as author's name
-
-    #adding categorization
-    ##identifying institutional repositories that are not the Texas Data Repository
-    df_datacite['non_TDR_IR'] = np.where(df_datacite['publisher'].str.contains('University|UCLA|UNC|Harvard|ASU|Dataverse', case=True), 'non-TDR institutional', 'not university or TDR')
-    df_datacite['US_federal'] = np.where(df_datacite['publisher'].str.contains('NOAA|NIH|NSF|U.S.|DOE|DOD|DOI|National|Designsafe', case=True), 'Federal US repo', 'not federal US repo')
-    df_datacite['GREI'] = np.where(df_datacite['publisher'].str.contains('Dryad|figshare|Zenodo|Vivli|Mendeley|Open Science Framework', case=False), 'GREI member', 'not GREI member')
-
     # #standardizing licenses
     # df_datacite['rights'] = df_datacite['rights'].apply(lambda x: ' '.join(x) if isinstance(x, list) else x).astype(str).str.strip('[]')
     # df_datacite['rights_standardized'] = 'Rights unclear'  #default value
@@ -1143,7 +1112,53 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
     # df_datacite.loc[df_datacite['rights'].str.contains('UCAR'), 'rights_standardized'] = 'Custom terms'
     # df_datacite.loc[df_datacite['rights'] == '', 'rights_standardized'] = 'Rights unclear'
 
-    df_datacite.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe.csv', index=False)
+    df_datacite.to_csv(f'outputs/{todayDate}_datacite-output-for-metadata-assessment.csv', index=False) 
+
+    #subsetting dataframe
+    df_datacite_pruned = df_datacite[['publisher', 'doi', 'publicationYear', 'title', 'first_author', 'first_affiliation', 'last_author', 'last_affiliation', 'source', 'type']]
+
+    #adding column for select high-volume repos
+    repo_mapping = {
+    'Dryad': 'Dryad',
+    'Zenodo': 'Zenodo',
+    'Texas Data Repository': 'Texas Data Repository'
+    }
+
+    df_datacite_pruned['repository2'] = df_datacite_pruned['publisher'].map(repo_mapping).fillna('Other')
+
+    df_datacite_pruned['uni_lead'] = df_datacite_pruned.apply(determine_affiliation, axis=1)
+
+    #standardizing repositories with multiple versions of name in dataframe
+    ##different institutions may need to add additional repositories; nothing will happen if you don't have any of the ones listed below and don't comment the lines out
+    df_datacite_pruned['publisher'] = df_datacite_pruned['publisher'].fillna('None')
+    df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('Digital Rocks', case=False), 'publisher'] = 'Digital Porous Media Portal'
+    df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('Environmental System Science Data Infrastructure for a Virtual Ecosystem', case=False), 'publisher'] = 'ESS-DIVE'
+    df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('Texas Data Repository|Texas Research Data Repository', case=False), 'publisher'] = 'Texas Data Repository'
+    df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('ICPSR', case=True), 'publisher'] = 'ICPSR'
+    df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('Environmental Molecular Sciences Laboratory', case=True), 'publisher'] = 'Environ Mol Sci Lab'
+    df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('BCO-DMO', case=True), 'publisher'] = 'Biol Chem Ocean Data Mgmt Office'
+    df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('Taylor & Francis|SAGE|The Royal Society|SciELO journals', case=True), 'publisher'] = 'figshare'
+    df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('Oak Ridge', case=True), 'publisher'] = 'Oak Ridge National Laboratory'
+    df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('PARADIM', case=True), 'publisher'] = 'PARADIM'
+    df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('4TU', case=True), 'publisher'] = '4TU.ResearchData'
+    df_datacite_pruned.loc[df_datacite_pruned['doi'].str.contains('zenodo', case=True), 'publisher'] = 'Zenodo'
+
+    #EDGE CASES, likely unnecessary for other universities, but you will need to find your own edge cases
+    ##confusing metadata with UT Austin (but not Dataverse) listed as publisher; have to be manually adjusted over time
+    if austin:
+        df_datacite_pruned.loc[(df_datacite_pruned['doi'].str.contains('10.11578/dc')) & (df_datacite_pruned['publisher'].str.contains('University of Texas')), 'publisher'] = 'Department of Energy (DOE) CODE'
+        ##other edge cases
+        df_datacite_pruned.loc[df_datacite_pruned['doi'].str.contains('10.23729/547d8c47-3723-4396-8f84-322c02ccadd0'), 'publisher'] = 'Finnish Fairdata' #labeled publisher as author's name
+
+    #adding categorization
+    ##identifying institutional repositories that are not the Texas Data Repository
+    df_datacite_pruned['non_TDR_IR'] = np.where(df_datacite_pruned['publisher'].str.contains('University|UCLA|UNC|Harvard|ASU|Dataverse', case=True), 'non-TDR institutional', 'not university or TDR')
+    df_datacite_pruned['US_federal'] = np.where(df_datacite_pruned['publisher'].str.contains('NOAA|NIH|NSF|U.S.|DOE|DOD|DOI|National|Designsafe', case=True), 'Federal US repo', 'not federal US repo')
+    df_datacite_pruned['GREI'] = np.where(df_datacite_pruned['publisher'].str.contains('Dryad|figshare|Zenodo|Vivli|Mendeley|Open Science Framework', case=False), 'GREI member', 'not GREI member')
+
+    df_datacite_pruned = df_datacite_pruned.rename(columns={'publisher': 'repository'})
+
+    df_datacite_pruned.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe.csv', index=False)
 
 ###### FIGSHARE WORKFLOW ######
 #These sections are for cleaning up identified figshare deposits or identifying associated ones that lack affiliation metadata
