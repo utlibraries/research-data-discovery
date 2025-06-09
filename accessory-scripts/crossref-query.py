@@ -165,6 +165,8 @@ df_data_select_crossref_deduplicated['affiliation_permutation'] = df_data_select
     lambda affs: next((p for p in ut_variations if any(p in aff for aff in affs)), None)
 )
 
+df_data_select_crossref_deduplicated.to_csv(f"accessory-outputs/{todayDate}_crossref-all-objects.csv", index=False)
+
 #removing anything that doesn't actually have some form of 'UT Austin'
 df_data_select_crossref_true = df_data_select_crossref_deduplicated[df_data_select_crossref_deduplicated['affiliation_permutation'].notna()].copy()
 #standardizing platform names
