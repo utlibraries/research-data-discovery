@@ -1,3 +1,4 @@
+from Bio import Entrez
 from datetime import datetime
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -18,8 +19,8 @@ import xml.etree.ElementTree as ET
 
 #operator for quick test runs
 test = False
-#operator for resource type(s) to query for (use '|' for Boolean OR)
-resourceType = 'Dataset'
+#operator for resource type(s) to query for (use OR and put in parentheses for multiple types)
+resourceType = '(Dataset OR Software)'
 #toggle for cross-validation steps
 crossValidate = True
 ##toggle for Dataverse cross-validation specifically
@@ -45,12 +46,24 @@ loadPreviousData = False
 loadPreviousDataPlus = False
 #toggle for executing NCBI process
 ncbiWorkflow = True
+#toggle for whether to use biopython approach to NCBI (TRUE = biopython; FALSE = Selenium)
+biopython = True
 #toggle for skipping web retrieval of NCBI data (just XML to dataframe conversion)
 loadNCBIdata = False
 #toggle for loading previous DataCite + Figshare workflow 1 + NCBI
 loadPreviousDataPlusNCBI = False
 #toggle to load in externally generated Crossref data
 loadCrossrefData = True
+
+#conditional toggles, if loading in previous data, automatically set certain other toggles to False regardless of how they are set
+##should minimize how much you need to edit multiple toggles (WIP)
+if loadPreviousData:
+    figshareWorkflow1 = False
+    figshareWorkflow2 = False
+if loadPreviousDataPlusNCBI:
+    figshareWorkflow1 = False
+    figshareWorkflow2 = False
+    ncbiWorkflow = False
 
 #setting timestamp to calculate run time
 startTime = datetime.now() 
@@ -60,6 +73,9 @@ todayDate = datetime.now().strftime('%Y%m%d')
 #read in config file
 with open('config.json', 'r') as file:
     config = json.load(file)
+
+#read in email address for polite requests (required for biopython NCBI workflow)
+email = config['EMAIL']['user_email']
 
 #creating directories
 if test:
@@ -104,7 +120,7 @@ params_dryad= {
 
 params_datacite = {
     'affiliation': 'true',
-    'query': f'(creators.affiliation.name:({institution_query}) OR creators.name:({institution_query}) OR contributors.affiliation.name:({institution_query}) OR contributors.name:({institution_query})) AND types.resourceTypeGeneral:"{resourceType}"',
+    'query': f'(creators.affiliation.name:({institution_query}) OR creators.name:({institution_query}) OR contributors.affiliation.name:({institution_query}) OR contributors.name:({institution_query})) AND types.resourceTypeGeneral:{resourceType}',
     'page[size]': config['VARIABLES']['PAGE_SIZES']['datacite'],
     'page[cursor]': 1,
 }
@@ -123,7 +139,7 @@ params_dataverse = {
 }
 
 params_zenodo_data = {
-    'q': f'creators.affiliation:({institution_query})',
+    'q': f'(creators.affiliation:({institution_query}) OR creators.name:({institution_query}) OR contributors.affiliation:({institution_query}) OR contributors.name:({institution_query}))',
     'size': config['VARIABLES']['PAGE_SIZES']['zenodo'],
     'type': 'dataset',
     'access_token': config['KEYS']['zenodoToken']
@@ -550,6 +566,7 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
         })
 
     df_datacite_initial = pd.json_normalize(data_select_datacite)
+    df_datacite_initial.to_csv(f'outputs/{todayDate}_datacite-initial-output.csv')
 
     if crossValidate:
         print('Dryad step\n')
@@ -945,7 +962,7 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
             })
 
         df_datacite_new = pd.json_normalize(data_select_datacite_new)
-        df_datacite_new.to_csv(f'outputs/{todayDate}_test.csv')
+        df_datacite_new.to_csv(f'outputs/{todayDate}_datacite-additional-cross-validation.csv')
     if crossValidate:
         df_datacite_all = pd.concat([df_datacite_initial, df_datacite_new], ignore_index=True)
     else:
@@ -1027,6 +1044,10 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
     df_datacite_dedup = df_datacite_v2[~(df_datacite_v2['publisher'].str.contains('Dataverse|Texas Data Repository', case=False, na=False) & df_datacite_v2['containerIdentifier'].notnull())]
     df_datacite_dedup = df_datacite_dedup[~(df_datacite_dedup['doi'].str.count('/') >= 3)]
 
+    #handling blanket 'affiliation' of UT Austin for all DesignSafe deposits
+    df_datacite_dedup = df_datacite_dedup[~((df_datacite_dedup['publisher'] == 'Designsafe-CI') & (df_datacite_dedup['affiliation_permutation'] != 'University of Texas at Austin'))
+    ]
+
     #handling Dataverse partial duplication (oversplitting of one manuscript's materials)
     if dataverseDuplicates:
         # Convert list columns to strings
@@ -1038,6 +1059,7 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
         # Deduplicate on the combination of columns, keeping the first entry
         dataverse['hadPartialDuplicate'] = dataverse.duplicated(subset=['publisher', 'publicationDate', 'creatorsNames', 'creatorsAffiliations', 'type', 'rights'], keep=False)
         dataverse_deduplicated = dataverse.drop_duplicates(subset=['publisher', 'publicationDate', 'creatorsNames', 'creatorsAffiliations', 'type', 'rights'], keep='first')
+        print(f'Number of deposits cut from {len(dataverse)} to {len(dataverse_deduplicated)}')
         df_datacite_dedup = pd.concat([df_datacite_no_dataverse, dataverse_deduplicated], ignore_index=True)
 
     #final sweeping dedpulication step, will catch a few odd edge cases that have been manually discovered
@@ -1141,7 +1163,6 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
     df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('Oak Ridge', case=True), 'publisher'] = 'Oak Ridge National Laboratory'
     df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('PARADIM', case=True), 'publisher'] = 'PARADIM'
     df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('4TU', case=True), 'publisher'] = '4TU.ResearchData'
-    df_datacite_pruned.loc[df_datacite_pruned['doi'].str.contains('zenodo', case=True), 'publisher'] = 'Zenodo'
 
     #EDGE CASES, likely unnecessary for other universities, but you will need to find your own edge cases
     ##confusing metadata with UT Austin (but not Dataverse) listed as publisher; have to be manually adjusted over time
@@ -1179,7 +1200,7 @@ if loadPreviousData:
 
     if latest_file:
         file_path = os.path.join(directory, latest_file)
-        df_datacite = pd.read_csv(file_path)
+        df_datacite_pruned = pd.read_csv(file_path)
         print(f'The most recent file "{latest_file}" has been loaded successfully.')
     else:
         print(f'No file with "{pattern}" was found in the directory "{directory}".')
@@ -1188,7 +1209,7 @@ if loadPreviousData:
 #this step may become redundant if the large-scale retrieval is modified to include the identifiers to begin with
 if figshareKnown:
 
-    figshare = df_datacite[df_datacite['doi'].str.contains('figshare')]
+    figshare = df_datacite_pruned[df_datacite_pruned['doi'].str.contains('figshare')]
 
     print('Retrieving additional figshare metadata\n')
     results = []
@@ -1229,7 +1250,7 @@ if figshareKnown:
         for rel in related_identifiers: #'explodes' deposits with multiple relatedIdentifiers
             data_figshare_select.append({
                 'doi': doi_dc,
-                'publisher': publisher_dc,
+                'repository': publisher_dc,
                 'publicationYear': publisher_year_dc,
                 'title': title_dc,
                 'relationType': rel.get('relationType'),
@@ -1350,7 +1371,7 @@ if figshareWorkflow1:
                 for rel in related_identifiers: #'explodes' deposits with multiple relatedIdentifiers
                     data_select_datacite.append({
                         'doi': doi_dc,
-                        'publisher': publisher_dc,
+                        'repository': publisher_dc,
                         'publicationYear': publisher_year_dc,
                         'title': title_dc,
                         'creators': creators_dc,
@@ -1415,6 +1436,7 @@ if figshareWorkflow1:
     #output all UT linked deposits, no deduplication (for Figshare validator workflow)
     df_openalex_datacite = pd.merge(df_openalex, df_datacite_supplement, on='relatedIdentifier', how='left')
     df_openalex_datacite = df_openalex_datacite[df_openalex_datacite['doi'].notnull()]
+    df_openalex_datacite = df_openalex_datacite.drop_duplicates(subset='relatedIdentifier', keep='first')
     df_openalex_datacite.to_csv(f'outputs/{todayDate}_figshare-discovery-all.csv', index=False)
 
     #working with deduplicated dataset for rest of process
@@ -1438,12 +1460,12 @@ if figshareWorkflow1:
     new_figshare['uni_lead'] = new_figshare.apply(determine_affiliation, axis=1)
     new_figshare['repository'] = 'figshare'
     new_figshare['source'] = 'DataCite+' #slight differentiation from records only retrieved from DataCite
-    new_figshare['repository2'] = 'figshare'
+    new_figshare['repository2'] = 'Other'
     new_figshare['non_TDR_IR'] = 'not university or TDR'
     new_figshare['US_federal'] = 'not federal US repo'
     new_figshare['GREI'] = 'GREI member'
 
-    df_datacite_plus = pd.concat([df_datacite, new_figshare], ignore_index=True)
+    df_datacite_plus = pd.concat([df_datacite_pruned, new_figshare], ignore_index=True)
     #de-duplicating in case some DOIs were caught twice (for the few publishers that do cross-walk affiliation metadata), you could use a sorting method to determine which one to 'keep'; the default will retain the ones returned from the main workflow
     df_datacite_plus_dedup = df_datacite_plus.drop_duplicates(subset='doi', keep='first')
     df_datacite_plus_dedup.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-figshare.csv', index=False)
@@ -1632,7 +1654,10 @@ if ncbiWorkflow:
 
     #set path for browser
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    outputs_dir = os.path.join(script_dir, 'outputs')
+    if test:
+        outputs_dir = os.path.join(script_dir, 'test/outputs')
+    else:
+        outputs_dir = os.path.join(script_dir, 'outputs')
 
     #check if previous output file exists
     directory = './outputs'
@@ -1653,78 +1678,102 @@ if ncbiWorkflow:
         institution_name = config['INSTITUTION']['name']
         #URL encode name
         encoded_institution_name = quote(institution_name)
+        if not biopython:
+            #set up temporary Firefox 'profile' to direct downloads (profile not saved outside of script)
+            options = Options()
+            options.set_preference('browser.download.folderList', 2)
+            options.set_preference('browser.download.dir', outputs_dir)
+            options.set_preference('browser.helperApps.neverAsk.saveToDisk', 'application/octet-stream')
+            #blocking pop-up window to cancel download
+            options.set_preference('browser.download.manager.showWhenStarting', False)
+            options.set_preference('browser.download.manager.focusWhenStarting', False)
+            options.set_preference('browser.download.useDownloadDir', True)
+            options.set_preference('browser.download.manager.alertOnEXEOpen', False)
+            options.set_preference('browser.download.manager.closeWhenDone', True)
+            options.set_preference('browser.download.manager.showAlertOnComplete', False)
+            options.set_preference('browser.download.manager.useWindow', False)
+            options.set_preference('services.sync.prefs.sync.browser.download.manager.showWhenStarting', False)
+            options.set_preference('browser.download.alwaysOpenPanel', False)  # Disable the download panel
+            options.set_preference('browser.download.panel.shown', False)  # Ensure the download panel is not shown
 
-        #set up temporary Firefox 'profile' to direct downloads (profile not saved outside of script)
-        options = Options()
-        options.set_preference('browser.download.folderList', 2)
-        options.set_preference('browser.download.dir', outputs_dir)
-        options.set_preference('browser.helperApps.neverAsk.saveToDisk', 'application/octet-stream')
-        #blocking pop-up window to cancel download
-        options.set_preference('browser.download.manager.showWhenStarting', False)
-        options.set_preference('browser.download.manager.focusWhenStarting', False)
-        options.set_preference('browser.download.useDownloadDir', True)
-        options.set_preference('browser.download.manager.alertOnEXEOpen', False)
-        options.set_preference('browser.download.manager.closeWhenDone', True)
-        options.set_preference('browser.download.manager.showAlertOnComplete', False)
-        options.set_preference('browser.download.manager.useWindow', False)
-        options.set_preference('services.sync.prefs.sync.browser.download.manager.showWhenStarting', False)
-        options.set_preference('browser.download.alwaysOpenPanel', False)  # Disable the download panel
-        options.set_preference('browser.download.panel.shown', False)  # Ensure the download panel is not shown
+            #initialize Selenium WebDriver
+            driver = webdriver.Firefox(options=options)
+            ##searches all fields; searching Submitter Organization specifically does not recover all results
+            ncbi_url = f'https://www.ncbi.nlm.nih.gov/bioproject?term={encoded_institution_name}'
+            driver.get(ncbi_url)
 
-        #initialize Selenium WebDriver
-        driver = webdriver.Firefox(options=options)
-        ##searches all fields; searching Submitter Organization specifically does not recover all results
-        ncbi_url = f'https://www.ncbi.nlm.nih.gov/bioproject?term={encoded_institution_name}'
-        driver.get(ncbi_url)
+            try:
+                #Load page and find the 'Send to' dropdown
+                send_to_link = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, 'sendto')))
+                send_to_link.click()
 
-        try:
-            #Load page and find the 'Send to' dropdown
-            send_to_link = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, 'sendto')))
-            send_to_link.click()
+                #Load dropdown and select 'File' radio button
+                file_option = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, 'dest_File')))
+                file_option.click()
 
-            #Load dropdown and select 'File' radio button
-            file_option = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, 'dest_File')))
-            file_option.click()
+                #Load 'Format' dropdown and select 'XML'
+                format_dropdown = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, 'file_format')))
+                format_dropdown.click()
+                xml_option = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.XPATH, "//option[@value='xml']")))
+                xml_option.click()
 
-            #Load 'Format' dropdown and select 'XML'
-            format_dropdown = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, 'file_format')))
-            format_dropdown.click()
-            xml_option = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.XPATH, "//option[@value='xml']")))
-            xml_option.click()
+                #click the 'Create File' button
+                create_file_button = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.XPATH, "//button[@cmd='File']")))
+                create_file_button.click()
 
-            #click the 'Create File' button
-            create_file_button = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.XPATH, "//button[@cmd='File']")))
-            create_file_button.click()
+                print('Download complete, about to close window.\n')
+                time.sleep(10)
 
-            print('Download complete, about to close window.\n')
-            time.sleep(10)
+                #overwrite any existing file with 'bioproject_result.xml' rather than continually creating new version with (*) appended in filename (e.g., bioproject_result(1).xml)
+                ##will delete previous one and then rename the just-downloaded one with (*) appended
+                if existingOutput:
+                    downloaded_file = max([os.path.join(outputs_dir, f) for f in os.listdir(outputs_dir)], key=os.path.getctime)
+                    target_file = os.path.join(outputs_dir, 'bioproject_result.xml')
+                    if os.path.exists(target_file):
+                        os.remove(target_file)
+                        print(f'Deleted existing file: {target_file}')
+                    os.rename(downloaded_file, target_file)
+                    print(f'Renamed {downloaded_file} to {target_file}')
 
-            #overwrite any existing file with 'bioproject_result.xml' rather than continually creating new version with (*) appended in filename (e.g., bioproject_result(1).xml)
-            ##will delete previous one and then rename the just-downloaded one with (*) appended
-            if existingOutput:
-                downloaded_file = max([os.path.join(outputs_dir, f) for f in os.listdir(outputs_dir)], key=os.path.getctime)
-                target_file = os.path.join(outputs_dir, 'bioproject_result.xml')
-                if os.path.exists(target_file):
-                    os.remove(target_file)
-                    print(f'Deleted existing file: {target_file}')
-                os.rename(downloaded_file, target_file)
-                print(f'Renamed {downloaded_file} to {target_file}')
+            except TimeoutException:
+                print('Element not found or not clickable within the specified time.')
 
-        except TimeoutException:
-            print('Element not found or not clickable within the specified time.')
+            finally:
+                driver.quit()
+        else:
+            print("Starting biopython retrieval")
+            #NCBI requires email to be provided
+            Entrez.email = f'{email}'
 
-        finally:
-            driver.quit()
+            #if you get a free API key, increases rate limit from 3/sec to 10/sec
+            #Entrez.api_key = 'YOUR_NCBI_API_KEY'
+
+            search_term = config['INSTITUTION']['name'] #check that this string is the right one in the web interface
+            handle = Entrez.esearch(db='bioproject', term=search_term, usehistory='y', retmax=1200) #currently at 955
+            record = Entrez.read(handle)
+            handle.close()
+
+            webenv = record['WebEnv']
+            query_key = record['QueryKey']
+
+            handle = Entrez.efetch(db='bioproject', query_key=query_key, WebEnv=webenv, retmode='xml')
+            xml_data = handle.read().decode('utf-8')
+            handle.close()
+
+            with open(f'{outputs_dir}/bioproject_result.xml', 'w', encoding='utf-8') as f:
+                f.write(xml_data)
+
+            print(f'Saved XML record to "{outputs_dir}/bioproject_result.xml"')
 
     #read in XML file (required regardless of whether you downloaded version in this run or not)
     print('Loading previously generated XML file.\n')
     with open(f'{outputs_dir}/bioproject_result.xml', 'r', encoding='utf-8') as file:
         data = file.read()
 
-    #wrapping in a root element for parsing
-    wrapped_data = f'<root>{data}</root>'
-    #parse the wrapped content
-    root = ET.fromstring(wrapped_data)
+    #wrapping in a root element for parsing if from Selenium output
+    if not data.strip().startswith('<?xml'):
+        data = f'<root>{data}</root>'
+    root = ET.fromstring(data)
 
     #select certain fields from XML
     def filter_ncbi(doc):
@@ -1808,31 +1857,26 @@ if ncbiWorkflow:
 
         if latest_file:
             file_path = os.path.join(directory, latest_file)
-            df_datacite_plus = pd.read_csv(file_path)
+            df_datacite_plus_dedup = pd.read_csv(file_path)
             print(f'The most recent file "{latest_file}" has been loaded successfully.')
         else:
             print(f'No file with "{pattern}" was found in the directory "{directory}".')
 
-    if loadPreviousData:
-        df_datacite_plus_ncbi = pd.concat([df_datacite, ncbi_df_select], ignore_index=True)
-        df_datacite_plus_ncbi.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-ncbi.csv', index=False)
-    elif loadPreviousDataPlus:
-        df_datacite_plus_ncbi = pd.concat([df_datacite_plus, ncbi_df_select], ignore_index=True)
-        df_datacite_plus_ncbi.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-figshare-ncbi.csv', index=False)
-    elif not loadPreviousData and not loadPreviousData and not figshareWorkflow1:
-        df_datacite_plus_ncbi = pd.concat([df_datacite, ncbi_df_select], ignore_index=True)
-        df_datacite_plus_ncbi.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-ncbi.csv', index=False)
-    elif not loadPreviousData and not loadPreviousData and figshareWorkflow1:
-        df_datacite_plus_ncbi = pd.concat([df_datacite_plus, ncbi_df_select], ignore_index=True)
-        df_datacite_plus_ncbi.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-figshare-ncbi.csv', index=False)
+    df_datacite_plus_ncbi = pd.concat([df_datacite_plus_dedup, ncbi_df_select], ignore_index=True)
+    df_datacite_plus_ncbi.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-figshare-ncbi.csv', index=False)
 
     # ncbi_df_select.to_csv(f'outputs/{todayDate}_NCBI-select-output-aligned.csv', index=False)
 
 #to load in externally queried Crossref data
 if any([loadPreviousData, loadPreviousDataPlus, loadPreviousDataPlusNCBI]) and loadCrossrefData:
     print('Reading in existing DataCite+ output file\n')
-    directory = './outputs' 
-    pattern = '_full-concatenated-dataframe-plus-figshare-ncbi.csv'
+    directory = './outputs'
+    if loadPreviousDataPlusNCBI: 
+        pattern = '_full-concatenated-dataframe-plus-figshare-ncbi.csv'
+    elif loadPreviousDataPlus:
+        pattern = '_full-concatenated-dataframe-plus.csv'
+    elif loadPreviousData:
+        pattern = '_full-concatenated-dataframe.csv'
 
     files = os.listdir(directory)
     files.sort(reverse=True)
@@ -1871,7 +1915,7 @@ if any([loadPreviousData, loadPreviousDataPlus, loadPreviousDataPlusNCBI]) and l
         print(f'No file with "{pattern}" was found in the directory "{directory}".')
 
     if loadPreviousData:
-        df_datacite_plus_crossref = pd.concat([df_datacite, crossref_true_datasets], ignore_index=True)
+        df_datacite_plus_crossref = pd.concat([df_datacite_pruned, crossref_true_datasets], ignore_index=True)
         df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-crossref.csv', index=False)
     elif loadPreviousDataPlus:
         df_datacite_plus_crossref = pd.concat([df_datacite_plus, crossref_true_datasets], ignore_index=True)
@@ -1880,7 +1924,7 @@ if any([loadPreviousData, loadPreviousDataPlus, loadPreviousDataPlusNCBI]) and l
         df_datacite_plus_crossref = pd.concat([df_datacite_plus_ncbi, crossref_true_datasets], ignore_index=True)
         df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-figshare-ncbi-crossref.csv', index=False)
     elif not loadPreviousData and not loadPreviousData and not figshareWorkflow1:
-        df_datacite_plus_crossref = pd.concat([df_datacite, crossref_true_datasets], ignore_index=True)
+        df_datacite_plus_crossref = pd.concat([df_datacite_pruned, crossref_true_datasets], ignore_index=True)
         df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-crossref.csv', index=False)
     elif not loadPreviousData and not loadPreviousData and figshareWorkflow1:
         df_datacite_plus_crossref = pd.concat([df_datacite_plus, crossref_true_datasets], ignore_index=True)
