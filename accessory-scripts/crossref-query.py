@@ -62,37 +62,62 @@ def retrieve_page_crossref(url, params=None):
         print(f"Error retrieving page: {e}")
         return {'message': {'items': [], 'total-results':{}}}
 ##recursively retrieves pages
+# def retrieve_all_data_crossref(url, params):
+#     k = 0
+
+#     all_data_crossref = []
+#     data = retrieve_page_crossref(url, params)
+#     next_cursor = params['cursor']
+#     previous_cursor = None
+    
+#     if not data['message']['items']:
+#         print("No data found.")
+#         return all_data_crossref
+
+#     all_data_crossref.extend(data['message']['items'])
+    
+#     while k < page_limit_crossref:
+
+#         # data = retrieve_page_crossref(url, params=params)
+#         next_cursor = data.get('message', {}).get('next-cursor', None)
+#         if next_cursor is None:
+#             print("Retrieval complete, ending Crossref API query.")
+#             break
+#         params['cursor'] = next_cursor
+#         data = retrieve_page_crossref(url, params=params)
+#         total_count = data.get('message', {}).get('total-results', 0)
+#         total_pages = math.ceil(total_count / params['rows'])
+#         print(f'Retrieving page {k+1} of {total_pages}')
+        
+#         all_data_crossref.extend(data['message']['items'])
+#         k += 1
+    
+#     return all_data_crossref
+
+
 def retrieve_all_data_crossref(url, params):
     k = 0
-
     all_data_crossref = []
-    data = retrieve_page_crossref(url, params)
-    next_cursor = params['cursor']
     previous_cursor = None
-    
-    if not data['message']['items']:
-        print("No data found.")
-        return all_data_crossref
 
-    all_data_crossref.extend(data['message']['items'])
-    
     while k < page_limit_crossref:
-
-        # data = retrieve_page_crossref(url, params=params)
-        next_cursor = data.get('message', {}).get('next-cursor', None)
-        if next_cursor is None:
-            print("Retrieval complete, ending Crossref API query.")
-            break
-        params['cursor'] = next_cursor
-        data = retrieve_page_crossref(url, params=params)
+        data = retrieve_page_crossref(url, params)
+        items = data.get('message', {}).get('items', [])
+        next_cursor = data.get('message', {}).get('next-cursor')
         total_count = data.get('message', {}).get('total-results', 0)
         total_pages = math.ceil(total_count / params['rows'])
         print(f'Retrieving page {k+1} of {total_pages}')
-        
-        all_data_crossref.extend(data['message']['items'])
+        if not items:
+            print("No more items found.")
+            break
+
+        all_data_crossref.extend(items)
+        previous_cursor = next_cursor
+        params['cursor'] = next_cursor
         k += 1
-    
+
     return all_data_crossref
+
 #determines which author (first vs. last or both) is affiliated
 def determine_affiliation(row):
     if row['first_author'] == row['last_author']:

@@ -479,29 +479,6 @@ if df_metadata is not None:
 
     ##licensing
     plot_filename = f"{todayDate}_datasets-by-licensing-all.{plotFormat}"
-    ##standardizing license names until this code is baked into main script
-    # df_metadata['rightsCode_standardized'] = 'Rights unclear'  #default value
-    # df_metadata.loc[df_metadata['rightsCode'].str.contains('cc0', case=False, na=False), 'rightsCode_standardized'] = 'CC0'
-    # df_metadata.loc[df_metadata['rightsCode'].str.contains('cc-by-4', case=False, na=False), 'rightsCode_standardized'] = 'CC-BY'
-    # df_metadata.loc[df_metadata['rightsCode'].str.contains('cc-by-nc-4', case=False, na=False), 'rightsCode_standardized'] = 'CC-BY-NC'
-    # df_metadata.loc[df_metadata['rightsCode'].str.contains('cc-by-nc-sa-4', case=False, na=False), 'rightsCode_standardized'] = 'CC-BY-NC-SA'
-    # df_metadata['rights'] = df_metadata['rights'].apply(lambda x: ' '.join(x) if isinstance(x, list) else x).astype(str).str.strip('[]')
-    df_metadata['rights_standardized'] = 'Rights unclear'  #default value
-    df_metadata.loc[df_metadata['rights'].str.contains('Creative Commons Zero|CC0', case=False, na=False), 'rights_standardized'] = 'CC0'
-    df_metadata.loc[df_metadata['rights'].str.contains('Creative Commons Attribution Non Commercial Share Alike', case=False, na=False), 'rights_standardized'] = 'CC BY-NC-SA'
-    df_metadata.loc[df_metadata['rights'].str.contains('Creative Commons Attribution Non Commercial', case=False, na=False), 'rights_standardized'] = 'CC BY-NC'
-    df_metadata.loc[df_metadata['rights'].str.contains('Creative Commons Attribution 3.0|Creative Commons Attribution 4.0|Creative Commons Attribution-NonCommercial', case=False, na=False), 'rights_standardized'] = 'CC BY'
-    df_metadata.loc[df_metadata['rights'].str.contains('GNU General Public License', case=False, na=False), 'rights_standardized'] = 'GNU GPL'
-    df_metadata.loc[df_metadata['rights'].str.contains('Apache License', case=False, na=False), 'rights_standardized'] = 'Apache'
-    df_metadata.loc[df_metadata['rights'].str.contains('MIT License', case=False, na=False), 'rights_standardized'] = 'MIT'
-    df_metadata.loc[df_metadata['rights'].str.contains('BSD', case=False, na=False), 'rights_standardized'] = 'BSD'
-    df_metadata.loc[df_metadata['rights'].str.contains('ODC-BY', case=False, na=False), 'rights_standardized'] = 'ODC-BY'
-    df_metadata.loc[df_metadata['rights'].str.contains('Open Access', case=False, na=False), 'rights_standardized'] = 'Rights unclear'
-    df_metadata.loc[df_metadata['rights'].str.contains('Closed Access', case=False, na=False), 'rights_standardized'] = 'Restricted access'
-    df_metadata.loc[df_metadata['rights'].str.contains('Restricted Access', case=False, na=False), 'rights_standardized'] = 'Restricted access'
-    df_metadata.loc[df_metadata['rights'].str.contains('Databrary', case=False, na=False), 'rights_standardized'] = 'Custom terms'
-    df_metadata.loc[df_metadata['rights'].str.contains('UCAR', case=False, na=False), 'rights_standardized'] = 'Custom terms'
-    df_metadata.loc[df_metadata['rights'] == '', 'rights_standardized'] = 'Rights unclear'
     licensing = df_metadata['rights_standardized'].value_counts()
     print(licensing)
 

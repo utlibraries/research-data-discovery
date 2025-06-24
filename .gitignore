@@ -4,6 +4,7 @@ test/
 inputs/
 outputs/
 script-archive/
+preprint-etc/
 accessory-scripts/accessory-outputs
 accessory-scripts/inputs
 accessory-scripts/plots
