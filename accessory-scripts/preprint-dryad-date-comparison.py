@@ -13,7 +13,7 @@ test = False
 resourceType = 'Dataset'
 #toggle for cross-validation steps
 crossValidate = True
-##if you have done a previous DataCite retrieval and don't want to re-run the entire main process (skip to Figshare steps)
+##if you have done a previous DataCite retrieval and don't want to re-run the entire main process
 loadPreviousData = False
 ##toggle for university specifically vs. all Dryad
 austin = False
@@ -168,12 +168,12 @@ def retrieve_all_data_datacite(url, params):
     return all_data_datacite
 
 if not loadPreviousData:
-    print('Starting DataCite retrieval based on affiliation.\n')
+    print('Starting DataCite retrieval of all Dryad datasets.\n')
     data_datacite = retrieve_all_data_datacite(url_datacite, params_datacite)
     print(f'Number of datasets found by DataCite API: {len(data_datacite)}\n')
 
     if crossValidate:
-        print('Starting Dryad retrieval.\n')
+        print('Starting Dryad retrieval of all Dryad datasets.\n')
         data_dryad = retrieve_all_data_dryad(url_dryad, params_dryad)
         print(f'Number of Dryad datasets found by Dryad API: {len(data_dryad)}\n')
 

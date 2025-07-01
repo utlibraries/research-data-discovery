@@ -20,7 +20,7 @@ crossref = True
 #toggle to run deduplication process of primary workflow on RADS data
 deduplicationTest = True
 #toggle to randomly pull more detailed metadata for RADS deposits
-RADSrandomcheck = False
+RADSrandomcheck = True
 #for random sampling of RADS dataset
 randomCount = 4000
 #toggle for DataCite public data file
@@ -118,15 +118,34 @@ if df is None:
     df = pd.read_csv(csv_path)
     
 print(f"Loaded CSV with {len(df)} rows.")
+#this only looks at datasets with 'figshare' listed as the publisher and does not include publisher partners (SAGE uses a non-Figshare DOI)
 df_select = df[df['publisher'].str.contains('figshare')]
+print(f'Number of DOIs with Figshare listed as publisher: {len(df_select)}')
+#create summary by institution for downstream
+##do not deduplicate, want duplicates to count for all institutions
 df_granular = df_select[df_select['resourceTypeGeneral'].str.contains('Dataset', case=True, na=False)]
+print(f'Number of Datasets with Figshare listed as publisher: {len(df_granular)}')
+summary_df1 = df_granular['institution'].value_counts().reset_index()
+summary_df1.columns = ['institution', 'entry_count']
+summary_df1['type'] = 'Original'
+
 figshare_no_versions = df_granular[~df_granular['DOI'].str.contains(r'\.v\d+$')]
-print(f'Number of DOIs to retrieve: {len(figshare_no_versions)}')
+#second summary now that versions are removed
+summary_df2 = figshare_no_versions['institution'].value_counts().reset_index()
+summary_df2.columns = ['institution', 'entry_count']
+summary_df2['type'] = 'Versions removed'
+
+total_summary = pd.concat([summary_df1, summary_df2], ignore_index=True)
+
+figshare_no_versions.to_csv(f"accessory-outputs/{todayDate}_RADS-figshare-datasets.csv")
+#remove datasets listed for multiple institutions (more efficient query)
+figshare_no_versions_dedup = figshare_no_versions.drop_duplicates(subset='DOI', keep="first")
+print(f'Number of DOIs to retrieve: {len(figshare_no_versions_dedup)}')
 
 if not loadPreviousDataCite:
     print('Retrieving additional DataCite metadata for affiliated Figshare deposits\n')
     results = []
-    for doi in figshare_no_versions['DOI']:
+    for doi in figshare_no_versions_dedup['DOI']:
         try:
             response = requests.get(f'{url_datacite}/{doi}')
             if response.status_code == 200:
@@ -140,9 +159,11 @@ if not loadPreviousDataCite:
     data_datacite_new = {
         'datasets': results
     }
-    data_select_datacite_new = []
+    data_select_linked_articles = []
+    data_select = []
     datasets = data_datacite_new.get('datasets', []) 
 
+    #only returns record if there is a article supplemented by dataset in metadata
     for item in datasets:
         data = item.get('data', {})
         attributes = data.get('attributes', {})
@@ -184,7 +205,7 @@ if not loadPreviousDataCite:
             relatedIdentifier = identifier.get('relatedIdentifier', '')
 
             if relationType == 'IsSupplementTo' and relatedIdentifier:
-                data_select_datacite_new.append({
+                data_select_linked_articles.append({
                     'doi': doi,
                     'publisher': publisher,
                     'publicationYear': publisher_year,
@@ -199,23 +220,142 @@ if not loadPreviousDataCite:
                     'relatedIdentifier': relatedIdentifier
                 })
 
-    df_datacite_new = pd.json_normalize(data_select_datacite_new)
-    df_datacite_new.to_csv(f"accessory-outputs/{todayDate}_RADS-figshare-datasets.csv")
+    for item in datasets:
+        data = item.get('data', {})
+        attributes = data.get('attributes', {})
+        doi = attributes.get('doi', None)
+        state = attributes.get('state', None)
+        publisher = attributes.get('publisher', '')
+        registered = attributes.get('registered', '')
+        if registered:
+            publisher_year = datetime.fromisoformat(registered.rstrip('Z')).year
+            publisher_date = datetime.fromisoformat(registered.rstrip('Z')).date()
+        else:
+            publisher_year = None
+            publisher_date = None
+        updated = attributes.get('updated', '')
+        title = attributes.get('titles', [{}])[0].get('title', '')
+        creators = attributes.get('creators', [{}])
+        creatorsNames = [creator.get('name', '') for creator in creators]
+        creatorsAffiliations = ['; '.join(creator.get('affiliation', [])) for creator in creators]
+        first_creator = creators[0].get('name', None) if creators else None
+        last_creator = creators[-1].get('name', None) if creators else None
+        affiliations = [
+            aff.get('name', '')
+            for creator in creators
+            for aff in (creator.get('affiliation') if isinstance(creator.get('affiliation'), list) else [])
+            if isinstance(aff, dict)
+        ]
+        first_affiliation = affiliations[0] if affiliations else None
+        last_affiliation = affiliations[-1] if affiliations else None
+        contributors = attributes.get('contributors', [{}])
+        contributorsNames = [contributor.get('name', '') for contributor in contributors]
+        contributorsAffiliations = ['; '.join(contributor.get('affiliation', [])) for contributor in contributors]
+        container = attributes.get('container', {})
+        container_identifier = container.get('identifier', None)
+        types = attributes.get('types', {})
 
+        related_identifiers = attributes.get('relatedIdentifiers', [])
+        data_select.append({
+            'doi': doi,
+            'publisher': publisher,
+            'publicationYear': publisher_year,
+            'publicationDate': publisher_date,
+            'updatedDate': updated,
+            'title': title,
+            'creatorsNames': creatorsNames,
+            'creatorsAffiliations': creatorsAffiliations,
+            'contributorsNames': contributorsNames,
+            'contributorsAffiliations': contributorsAffiliations,
+            'relatedIdentifier': related_identifiers
+        })
+
+    df_figshare_enriched = pd.json_normalize(data_select)
+    df_figshare_enriched.to_csv(f"accessory-outputs/{todayDate}_RADS-figshare-datasets-enriched.csv")
+    df_figshare_linked_articles = pd.json_normalize(data_select_linked_articles)
+    df_figshare_linked_articles.to_csv(f"accessory-outputs/{todayDate}_RADS-figshare-datasets-linked-articles.csv")
 else:
     pattern = '_RADS-figshare-datasets.csv'
-    df_datacite_new = load_most_recent_file(outputs_dir, pattern)
+    df_figshare_enriched = load_most_recent_file(outputs_dir, pattern)
 figshare_no_versions = figshare_no_versions.rename(columns={'doi':'doi_alt', 'DOI': 'doi'})
-df_datacite_merged = pd.merge(df_datacite_new, figshare_no_versions, how="left", on="doi")
+df_datacite_merged = pd.merge(df_figshare_enriched, figshare_no_versions, how="left", on="doi")
 df_datacite_merged.to_csv(f"accessory-outputs/{todayDate}_RADS-figshare-datasets-merged.csv")
 
-#doing a broader check of all RADS deposits
-df_datacite = df[df['group'] == 'Affiliation - Datacite']
-df_datacite = df_datacite[df_datacite['resourceTypeGeneral'].str.contains('Dataset', case=True, na=False)]
-df_random = df_datacite.sample(n=randomCount, random_state=47)
+#reverse merge to account for multiple RADS institutions being linked to same dataset
+df_datacite_merged_reverse = pd.merge(figshare_no_versions, df_figshare_enriched, how="left", on="doi")
+df_datacite_merged_reverse.to_csv(f"accessory-outputs/{todayDate}_RADS-figshare-datasets-merged-reverse.csv")
+##get third summary (deduplicating by relatedIdentifier / consolidating Figshare deposits)
+###keep duplicates when multi-RADS institutions present
+###convert list-type columns to strings (or tuples) before dropping duplicates
+df_datacite_merged_reverse['relatedIdentifier'] = df_datacite_merged_reverse['relatedIdentifier'].apply(
+    lambda x: str(x) if isinstance(x, (list, dict)) else x
+)
+df_datacite_merged_reverse_dedup = df_datacite_merged_reverse.drop_duplicates(subset=['relatedIdentifier', 'institution', 'publicationDate'], keep="first")
+summary_df3 = df_datacite_merged_reverse_dedup['institution'].value_counts().reset_index()
+summary_df3.columns = ['institution', 'entry_count']
+summary_df3['type'] = 'Consolidation'
 
+total_summary = pd.concat([total_summary, summary_df3], ignore_index=True)
+total_summary.to_csv(f"accessory-outputs/{todayDate}_RADS-figshare-datasets-progressive-filtering-summary.csv")
+
+#retrieving metadata about related identifiers (linked articles) that were identified
+print("Retrieving metadata about related articles from Crossref\n")
+if crossref:
+    df_supplemental_articles = df_figshare_linked_articles.drop_duplicates(subset='relatedIdentifier', keep="first")
+
+    results = []
+    for doi in df_supplemental_articles['relatedIdentifier']:
+        try:
+            response = requests.get(f'{url_crossref}/{doi}')
+            if response.status_code == 200:
+                print(f"Retrieving {doi}")
+                print()
+                results.append(response.json())
+            else:
+                print(f"Error fetching {doi}: {response.status_code}, {response.text}")
+        except requests.exceptions.RequestException as e:
+            print(f"Timeout error on DOI {doi}: {e}")
+
+    data_figshare_crossref = {
+        'articles': results
+    }
+
+    data_figshare_crossref_select = []
+    articles = data_figshare_crossref.get('articles', [])
+    for item in articles:
+        message = item.get('message', {})
+        publisher = message.get('publisher', None)
+        journal = message.get('container-title', None)[0]
+        doi = message.get('DOI', "")
+        title_list = message.get('title', [])
+        title = title_list[0] if title_list else None
+        author = message.get('author', None)
+        created = message.get('created', {})
+        createdDate = created.get('date-time', None)
+        
+        data_figshare_crossref_select.append({
+            'publisher': publisher,
+            'journal': journal, 
+            'doi': doi,
+            'author': author,
+            'title': title,
+            'published': createdDate,
+    })
+        
+    df_crossref = pd.json_normalize(data_figshare_crossref_select)
+    df_crossref.to_csv(f"accessory-outputs/{todayDate}_RADS-figshare-associated-articles.csv")
+
+    #merge back with original dataset dataframe
+    df_crossref['relatedIdentifier'] = df_crossref['doi']
+    df_joint = pd.merge(df_supplemental_articles, df_crossref, on="relatedIdentifier", how="left")
+    df_joint.to_csv(f"accessory-outputs/{todayDate}_RADS-figshare-associated-articles-merged.csv")
+
+#doing a broader check of all RADS deposits
 if RADSrandomcheck:
     print('Retrieving additional DataCite metadata for random RADS deposits\n')
+    df_datacite = df[df['group'] == 'Affiliation - Datacite']
+    df_datacite = df_datacite[df_datacite['resourceTypeGeneral'].str.contains('Dataset', case=True, na=False)]
+    df_random = df_datacite.sample(n=randomCount, random_state=47)
     results = []
     for doi in df_random['DOI']:
         try:
@@ -305,22 +445,16 @@ def find_institutions(affiliation):
 
 # Apply the function to the 'affiliations' column and create a new column 'institution_found'
 df_datacite_merged['institution_found'] = df_datacite_merged['creatorsAffiliations'].apply(find_institutions)
+df_datacite_merged_reverse['institution_found'] = df_datacite_merged_reverse['creatorsAffiliations'].apply(find_institutions)
+
 if RADSrandomcheck:
     df_datacite_merged.to_csv(f"accessory-outputs/{todayDate}_RADS-random-{randomCount}-datasets-merged-validation-check.csv")
 else:
     df_datacite_merged.to_csv(f"accessory-outputs/{todayDate}_RADS-figshare-datasets-merged-validation-check.csv")
+    df_datacite_merged_reverse.to_csv(f"accessory-outputs/{todayDate}_RADS-figshare-datasets-merged-reverse-validation-check.csv")
 
 ###indexing through 2023 DataCite public data file
 if DataCitePDF:
-
-    import os
-    import tarfile
-    import gzip
-    import json
-    import csv
-
-    # Define the DOI to search for
-    # search_doi = "10.6084/m9.figshare.15253711"
     search_doi =  "10.6084/m9.figshare.c.5984410"
     search_dois = [
         "10.6084/m9.figshare.c.5984410",
@@ -383,62 +517,6 @@ if DataCitePDF:
             f.write(json.dumps(result) + '\n')
 
     print(f"Search completed. Results saved to {results_file}.")
-
-
-
-
-# df_figshare_supplemental = df_datacite_new.drop_duplicates(subset='relatedIdentifier', keep="first")
-# print(f'Number of DOIs to retrieve: {len(df_figshare_supplemental)}\n')
-
-# #retrieving metadata about related identifiers (linked articles) that were identified
-# print("Retrieving metadata about related articles from Crossref\n")
-# if crossref:
-#     results = []
-#     for doi in df_figshare_supplemental['relatedIdentifier']:
-#         try:
-#             response = requests.get(f'{url_crossref}/{doi}')
-#             if response.status_code == 200:
-#                 print(f"Retrieving {doi}")
-#                 print()
-#                 results.append(response.json())
-#             else:
-#                 print(f"Error fetching {doi}: {response.status_code}, {response.text}")
-#         except requests.exceptions.RequestException as e:
-#             print(f"Timeout error on DOI {doi}: {e}")
-
-#     data_figshare_crossref = {
-#         'articles': results
-#     }
-
-#     data_figshare_crossref_select = []
-#     articles = data_figshare_crossref.get('articles', [])
-#     for item in articles:
-#         message = item.get('message', {})
-#         publisher = message.get('publisher', None)
-#         journal = message.get('container-title', None)[0]
-#         doi = message.get('DOI', "")
-#         title_list = message.get('title', [])
-#         title = title_list[0] if title_list else None
-#         author = message.get('author', None)
-#         created = message.get('created', {})
-#         createdDate = created.get('date-time', None)
-        
-#         data_figshare_crossref_select.append({
-#             'publisher': publisher,
-#             'journal': journal, 
-#             'doi': doi,
-#             'author': author,
-#             'title': title,
-#             'published': createdDate,
-#     })
-        
-#     df_crossref = pd.json_normalize(data_figshare_crossref_select)
-#     df_crossref.to_csv(f"accessory-outputs/{todayDate}_RADS-figshare-associated-articles.csv")
-
-#     #merge back with original dataset dataframe
-#     df_crossref['relatedIdentifier'] = df_crossref['doi']
-#     df_joint = pd.merge(df_figshare_supplemental, df_crossref, on="relatedIdentifier", how="left")
-#     df_joint.to_csv(f"accessory-outputs/{todayDate}_RADS-figshare-associated-articles-merged.csv")
 
 # #for testing effect of applying the same deduplication steps of the primary workflow of this codebase to the RADS dataset
 # if deduplicationTest:

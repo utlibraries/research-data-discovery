@@ -59,13 +59,17 @@ loadCrossrefData = True
 
 #conditional toggles, if loading in previous data, automatically set certain other toggles to False regardless of how they are set
 ##should minimize how much you need to edit multiple toggles (WIP)
-if loadPreviousData:
+if loadPreviousDataPlus:
     figshareWorkflow1 = False
     figshareWorkflow2 = False
 if loadPreviousDataPlusNCBI:
     figshareWorkflow1 = False
     figshareWorkflow2 = False
     ncbiWorkflow = False
+
+#read in config file
+with open('config.json', 'r') as file:
+    config = json.load(file)
 
 #creating directories
 if test:
@@ -91,10 +95,6 @@ else:
 startTime = datetime.now() 
 #creating variable with current date for appending to filenames
 todayDate = datetime.now().strftime('%Y%m%d') 
-
-#read in config file
-with open('config.json', 'r') as file:
-    config = json.load(file)
 
 #read in email address for polite requests (required for biopython NCBI workflow, can be used for other APIs)
 email = config['EMAIL']['user_email']
@@ -605,7 +605,7 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
                 'relatedWorks': related_works_list_dr
             })
         df_dryad = pd.json_normalize(data_select_dryad)
-
+        df_dryad.to_csv(f'outputs/{todayDate}_Dryad-API-output.csv', index=False)
         if dataverse:
             print('Dataverse step\n')
             data_select_dataverse = [] 
@@ -637,7 +637,8 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
                     'dataverse': dataverse
                 })
             df_dataverse = pd.json_normalize(data_select_dataverse)
-
+            df_dataverse.to_csv(f'outputs/{todayDate}_TDR-API-output.csv', index=False)
+            
         print('Zenodo step\n')
         data_select_zenodo = [] 
         for item in data_zenodo:
@@ -670,7 +671,7 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
                 'relatedWorks_type': related_works_type_list_zen
             })
         df_data_zenodo = pd.json_normalize(data_select_zenodo)
-
+        df_data_zenodo.to_csv(f'outputs/{todayDate}_Zenodo-API-output.csv', index=False)
     print('Beginning dataframe editing.\n')
 
     #split out DataCite results for repos to be cross-validated against
@@ -964,7 +965,7 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
                 'views': views,
                 'downloads': downloads,
                 'citations': citations,
-                'source': 'repository API'
+                'source': 'repository cross-validation'
             })
 
         df_datacite_new = pd.json_normalize(data_select_datacite_new)
@@ -1359,10 +1360,11 @@ if figshareWorkflow1:
                         })
         except Exception as e:
             print(f'An error occurred for publisher {publisher_name}: {e}')
-            continue  # Skip to the next iteration
+            continue 
 
     df_datacite_initial = pd.json_normalize(data_select_datacite)
-    
+    df_datacite_initial.to_csv(f'outputs/{todayDate}_figshare-discovery-initial.csv', index=False)
+
     if countVersions:
         ##These steps will count different versions as distinct datasets and remove the 'parent' (redundant with most recent version)
         df_datacite_initial['base'] = df_datacite_initial['doi'].apply(lambda x: x.split('.v')[0])
@@ -1385,8 +1387,8 @@ if figshareWorkflow1:
     #output all UT linked deposits, no deduplication (for Figshare validator workflow)
     df_openalex_datacite = pd.merge(df_openalex, df_datacite_supplement, on='relatedIdentifier', how='left')
     df_openalex_datacite = df_openalex_datacite[df_openalex_datacite['doi'].notnull()]
-    df_openalex_datacite = df_openalex_datacite.drop_duplicates(subset='relatedIdentifier', keep='first')
     df_openalex_datacite.to_csv(f'outputs/{todayDate}_figshare-discovery-all.csv', index=False)
+    df_openalex_datacite = df_openalex_datacite.drop_duplicates(subset='relatedIdentifier', keep='first')
 
     #working with deduplicated dataset for rest of process
     df_openalex_datacite_dedup = pd.merge(df_openalex, df_datacite_supplement_dedup, on='relatedIdentifier', how='left')
@@ -1803,13 +1805,13 @@ if not any([loadPreviousData, loadPreviousDataPlus, loadPreviousDataPlusNCBI]) a
     else:
         print(f'No file with "{pattern}" was found in the directory "{directory}".')
 
-    if df_datacite_pruned and not df_datacite_plus_dedup:
+    if not df_datacite_pruned.empty and df_datacite_plus_dedup.empty:
         df_datacite_plus_crossref = pd.concat([df_datacite_pruned, crossref_true_datasets], ignore_index=True)
         df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-crossref.csv', index=False)
-    elif df_datacite_plus_dedup and not df_datacite_plus_ncbi:
+    elif not df_datacite_plus_dedup.empty and df_datacite_plus_ncbi.empty:
         df_datacite_plus_crossref = pd.concat([df_datacite_plus, crossref_true_datasets], ignore_index=True)
         df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-figshare-crossref.csv', index=False)
-    elif df_datacite_plus_ncbi:
+    elif not df_datacite_plus_ncbi.empty:
         df_datacite_plus_crossref = pd.concat([df_datacite_plus_ncbi, crossref_true_datasets], ignore_index=True)
         df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-figshare-ncbi-crossref.csv', index=False)
 
