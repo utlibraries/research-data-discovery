@@ -140,10 +140,7 @@ df_openalex = pd.json_normalize(data_select_openalex)
 if test:
     df_openalex = df_openalex[:10]
 
-# URL of the webpage to scrape
-doi = "https://doi.org/10.1371/journal.pone.0297637"
-
-# Initialize lists to store the extracted data
+#initialize lists to store the extracted data
 all_files = []
 all_descriptions = []
 all_urls = []
@@ -152,35 +149,35 @@ all_articles = []
 
 for doi in df_openalex['doi_article']:
     try:
-        # Send a GET request to the webpage
+        #send GET request
         response = requests.get(doi)
         response.raise_for_status()
         print(f"Retrieving information for {doi}")
         
-        # Parse the HTML content of the webpage
+        #parse HTML
         soup = BeautifulSoup(response.content, 'html.parser')
         
-        # Find all divs with the class "supplementary-material"
+        #find all divs with the class "supplementary-material"
         supplementary_materials = soup.find_all('div', class_='supplementary-material')
         
-        # Loop through each supplementary material div and extract the relevant information
+        #loop through each supplementary material div and extract the relevant information
         for material in supplementary_materials:
-            # Extract file label (e.g., S1 File)
+            #extract file label (e.g., S1 File)
             file_label_tag = material.find('h3', class_='siTitle title-small')
             file_label = file_label_tag.text.strip() if file_label_tag else 'not found'
             all_files.append(file_label)
             
-            # Extract description
+            #extract description
             description_tag = material.find('p', class_='preSiDOI')
             description = description_tag.text.strip() if description_tag else 'not found'
             all_descriptions.append(description)
             
-            # Extract URL
+            #extract URL
             url_tag = material.find('p', class_='siDoi').find('a') if material.find('p', class_='siDoi') else None
             url = url_tag['href'] if url_tag else 'not found'
             all_urls.append(url)
             
-            # Extract format from URL (e.g., XLSX, DOCX)
+            #extract format from URL (e.g., XLSX, DOCX)
             format_tag = material.find('p', class_='postSiDOI')
             format_ = format_tag.text.strip().strip('()') if format_tag else 'not found'
             ##some articles have the file size listed with the format in parentheses
@@ -188,7 +185,7 @@ for doi in df_openalex['doi_article']:
             format_clean = re.sub(r'\d+(\.\d+)?\s*(KB|MB|GB|TB)\s*', '', format_).strip()
             all_formats.append(format_clean)
             
-            # Add the article DOI
+            #add the article DOI
             all_articles.append(doi)
     
     except requests.RequestException as e:
@@ -196,7 +193,6 @@ for doi in df_openalex['doi_article']:
     except AttributeError as e:
         print(f"Error parsing HTML for DOI {doi}: {e}")
 
-# Create a DataFrame with the extracted data
 data = {
     "title": all_files,
     "description": all_descriptions,
@@ -220,8 +216,11 @@ def generic_classification(row):
     for word, value in title_criteria.items():
         if word in row['title']:
             return value
-    return 'Other'  #Return 'Other' if no match is found
+    return 'Other'  #return 'Other' if no match is found
 
 df_supplementary_materials['genericResourceType'] = df_supplementary_materials.apply(generic_classification, axis=1)
-# Save the DataFrame to a CSV file
-df_supplementary_materials.to_csv(f"accessory-outputs/{todayDate}_plos_extracted_SI_metadata.csv", index=False)
+df_supplementary_materials_dedup = df_supplementary_materials.drop_duplicates(subset='doi', keep='first')
+df_supplementary_materials_dedup.to_csv(f"accessory-outputs/{todayDate}_plos_extracted_SI_metadata.csv", index=False)
+
+print('Done.\n')
+print(f'Time to run: {datetime.now() - startTime}')
