@@ -214,7 +214,7 @@ df_data_select_crossref_pruned['US_federal'] = 'not federal US repo'
 df_data_select_crossref_pruned['GREI'] = 'not GREI member'
 
 #will need to be customized for a different institution, although some are likely to recur (e.g., H1, Authorea)
-df_data_select_crossref_pruned_repos = df_data_select_crossref_pruned[~df_data_select_crossref_pruned['repository'].str.contains('H1 Connect|Authorea|NumFOCUS|Exploration Geophysicists|College of Radiology')]
+df_data_select_crossref_pruned_repos = df_data_select_crossref_pruned[~df_data_select_crossref_pruned['repository'].str.contains('H1 Connect|Wiley|NumFOCUS|Exploration Geophysicists|College of Radiology')]
 
 df_data_select_crossref_pruned_repos.to_csv(f"accessory-outputs/{todayDate}_crossref-{institution}-true-datasets.csv", index=False)
 

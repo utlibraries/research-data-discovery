@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import numpy as np
 import os
 import pandas as pd
 import shutil
@@ -52,17 +53,17 @@ def load_most_recent_file(outputs_dir, pattern):
 #patterns for output files from API queries
 pattern1 = '_datacite-output-for-affiliation-source.csv'
 df_datacite = load_most_recent_file(outputs_dir, pattern1)
-if 'software' in df_datacite['type'].values:
+if 'Software' in df_datacite['type'].values:
     df = df_datacite[df_datacite['type'] == 'Dataset']
 
 pattern2 = '_full-concatenated-dataframe.csv'
 df_all_repos = load_most_recent_file(outputs_dir, pattern2)
-if 'software' in df_all_repos['type'].values:
+if 'Software' in df_all_repos['type'].values:
     df_all_repos = df_all_repos[df_all_repos['type'] == 'Dataset']
 
 pattern3 = '_full-concatenated-dataframe-plus-figshare-ncbi-crossref.csv'
 df_all_repos_plus = load_most_recent_file(outputs_dir, pattern3)
-if 'software' in df_all_repos_plus['type'].values:
+if 'Software' in df_all_repos_plus['type'].values:
     df_all_repos_plus = df_all_repos_plus[df_all_repos_plus['type'] == 'Dataset']
 #subsetting for datasets where UT researcher is first/last/both
 conditions = ['only lead', 'only senior', 'single author', 'both lead and senior']
@@ -74,7 +75,7 @@ df_extra_figshare = df_extra_figshare.drop_duplicates(subset='relatedIdentifier'
 
 pattern5 = 'datacite-output-for-metadata-assessment'
 df_metadata = load_most_recent_file(outputs_dir, pattern5)
-if 'software' in df_metadata['type'].values:
+if 'Software' in df_metadata['type'].values:
     df_metadata = df_metadata[df_metadata['type'] == 'Dataset']
 
 plots_dir = os.path.join(script_dir, 'plots')
@@ -91,7 +92,7 @@ if df_datacite is not None:
     plot_filename = f"{todayDate}_affiliation-source-counts.{plotFormat}"
     affiliation_source_counts = df_datacite['affiliation_source'].value_counts(ascending=True)
         
-    fig, ax1 = plt.subplots(figsize=(10, 7))
+    fig, ax1 = plt.subplots(figsize=(10, 5))
     bars = ax1.barh(affiliation_source_counts.index, affiliation_source_counts.values, color='#00a9b7', edgecolor='black')
     ax1.set_xlabel("Dataset count", fontsize=15)
     ax1.set_ylabel("")
@@ -234,13 +235,13 @@ if df_all_repos_plus is not None:
     # plt.tight_layout()
 
     #for a gridded view with each repository in a different subplot
-    fig, axs = plt.subplots(1, 5, figsize=(16, 6))
+    fig, axs = plt.subplots(1, 5, figsize=(10, 5))
     for i, repo in enumerate(df_filtered['repository'].unique()):
         subset = df_filtered[df_filtered['repository'] == repo]
         # ax = axs[i // 3, i % 3]
         ax = axs[i]
         ax.plot(subset['publicationYear'], subset['counts'], label=repo, linewidth=3.5, color=color_map[repo])
-        ax.set_title(repo, fontsize = 15)
+        ax.set_title(repo, fontsize = 14)
         # ax.set_xlabel("Publication Year")
         # ax.set_ylabel("Number of discovered datasets")
         ax.tick_params(axis='x', labelsize=12)
@@ -253,9 +254,16 @@ if df_all_repos_plus is not None:
         #standardize axes
         ax.set_xlim(2014, 2024)
         ax.set_xticks(list(range(2014, 2024, 2)) + [2024])
-        ax.set_ylim(0, 230)   
+        ax.set_ylim(0, 250)   
         ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{int(x)}'))
         plt.setp(ax.get_xticklabels(), rotation=45, ha='right')
+
+        #only showing y-axis label on left-most graph
+        if i != 0:
+            ax.set_yticklabels([])
+            ax.set_ylabel('')
+            ax.tick_params(axis='y', which='both', left=False)
+
     # Remove the empty subplot (bottom right)
     # fig.delaxes(axs[1][2])
     plt.tight_layout()
@@ -370,12 +378,41 @@ if df_all_repos_plus is not None:
     print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
 
 ###metadata assessments
+####contains software
 if df_metadata is not None:
     plot_filename = f"{todayDate}_contains-software.{plotFormat}"
-    softwareInclusions = df_metadata['containsCode'].value_counts(ascending=True)
+    #making some df modifications
+    ##will want to move into main script later
+    # Convert 'TRUE'/'FALSE' strings to Boolean values
+    df_metadata['containsCode'] = df_metadata['containsCode'].astype(str).str.upper().map({'TRUE': True, 'FALSE': False})
+    df_metadata['onlyCode'] = df_metadata['onlyCode'].astype(str).str.upper().map({'TRUE': True, 'FALSE': False})
 
+    # Apply your logic to create 'containsCodeAdjusted'
+    df_metadata['containsCodeAdjusted'] = (
+        df_metadata['onlyCode'].apply(lambda x: 'Only code' if x else None)
+        .combine_first(
+            df_metadata.apply(
+                lambda row: (
+                    'No file format information' if row['formats'] == 'No file information'
+                    else 'No code' if not row['containsCode']
+                    else 'Code and non-code files' if row['containsCode'] and not row['onlyCode']
+                    else 'Only code' if row['onlyCode']
+                    else 'Unknown'
+                ),
+                axis=1
+            )
+        )
+    )
+    softwareInclusions = df_metadata['containsCodeAdjusted'].value_counts(ascending=True)
+    color_map = {
+            'No file information': "#eaeaea",
+            'Code and non-code files': "#d41159",
+            'Only code': "#d41159",
+            'No code': "#1a85ff"
+        }
+    colors = [color_map.get(type, '#cccccc') for type in softwareInclusions.index]
     fig, ax = plt.subplots(figsize=(10, 7))
-    softwareInclusions.plot(kind='barh', stacked=False, ax=ax, color="#51bed3", edgecolor='black')
+    softwareInclusions.plot(kind='barh', stacked=False, ax=ax, color=colors, edgecolor='black')
     ax.set_xlabel("Count", fontsize=15)
     ax.set_ylabel("")
     ax.set_title("Count of datasets that contain at least one software format", fontsize=16)
@@ -389,23 +426,23 @@ if df_metadata is not None:
     plt.savefig(plot_path, format=plotFormat)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
 
-    plot_filename = f"{todayDate}_only-software.{plotFormat}"
-    softwareOnly = df_metadata['onlyCode'].value_counts(ascending=True)
+    # plot_filename = f"{todayDate}_only-software.{plotFormat}"
+    # softwareOnly = df_metadata['onlyCode'].value_counts(ascending=True)
 
-    fig, ax = plt.subplots(figsize=(10, 7))
-    softwareOnly.plot(kind='barh', stacked=False, ax=ax, color="#51bed3", edgecolor='black')
-    ax.set_xlabel("Count", fontsize=15)
-    ax.set_ylabel("")
-    ax.set_title("Count of datasets that only contain software format(s)", fontsize=16)
-    ax.set_facecolor('#f7f7f7')
-    ax.grid(True, which='both', color='white', linestyle='-', linewidth=1.5)
-    ax.tick_params(axis='both', which='major', labelsize=14)
-    ax.set_axisbelow(True)
-    plt.tight_layout()
+    # fig, ax = plt.subplots(figsize=(10, 7))
+    # softwareOnly.plot(kind='barh', stacked=False, ax=ax, color="#51bed3", edgecolor='black')
+    # ax.set_xlabel("Count", fontsize=15)
+    # ax.set_ylabel("")
+    # ax.set_title("Count of datasets that only contain software format(s)", fontsize=16)
+    # ax.set_facecolor('#f7f7f7')
+    # ax.grid(True, which='both', color='white', linestyle='-', linewidth=1.5)
+    # ax.tick_params(axis='both', which='major', labelsize=14)
+    # ax.set_axisbelow(True)
+    # plt.tight_layout()
 
-    plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat)
-    print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
+    # plot_path = os.path.join(plots_dir, plot_filename)
+    # plt.savefig(plot_path, format=plotFormat)
+    # print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
 
     ## file size
     plot_filename = f"{todayDate}_datasets-by-size-bin.{plotFormat}"
@@ -497,13 +534,13 @@ if df_metadata is not None:
     plt.savefig(plot_path, format=plotFormat)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
 
-    ###licensing minus Dryad and TDR (cc0 default or mandatory)
+    ###licensing minus Dryad and TDR (CC0 default or mandatory)
     plot_filename = f"{todayDate}_datasets-by-licensing-select.{plotFormat}"
     df_metadata_select = df_metadata[~df_metadata['publisher'].str.contains('Dryad|Texas', case=True, na=False)]
-    licensing = df_metadata_select['rights_standardized'].value_counts()
+    licensing_select = df_metadata_select['rights_standardized'].value_counts()
 
     fig, ax = plt.subplots(figsize=(10, 7))
-    bars = ax.barh(licensing.index, licensing.values, edgecolor='black')
+    bars = ax.barh(licensing_select.index, licensing_select.values, edgecolor='black')
     ax.set_xlabel("Dataset count", fontsize=15)
     ax.set_ylabel("")
     ax.set_title("Distribution of datasets by identified license (select repositories)", fontsize=16)
@@ -513,6 +550,39 @@ if df_metadata is not None:
     ax.set_axisbelow(True)
     plt.tight_layout()
 
+    plot_path = os.path.join(plots_dir, plot_filename)
+    plt.savefig(plot_path, format=plotFormat)
+    print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
+
+    ###combined licensing
+    plot_filename = f"{todayDate}_datasets-by-licensing-combined.{plotFormat}"
+    ####convert to dfs
+    # Convert Series to DataFrame and add 'Type' column
+    licensing = licensing.reset_index()
+    licensing.columns = ['License', 'Count']
+    licensing_select = licensing_select.reset_index()
+    licensing_select.columns = ['License', 'Count']
+    licensing['Type'] = 'All datasets'
+    licensing_select['Type'] = 'Removal of Dryad and TDR datasets'
+    licensing_combo = pd.concat([licensing, licensing_select], ignore_index=True)
+    df_pivot = licensing_combo.pivot(index='License', columns='Type', values='Count').fillna(0)
+    df_pivot_sorted = df_pivot.sort_values(by='All datasets', ascending=True)
+
+    y = np.arange(len(df_pivot_sorted.index))
+    bar_height = 0.4
+    fig, ax = plt.subplots(figsize=(10, 7))
+    ax.barh(y - bar_height/2, df_pivot_sorted['All datasets'], height=bar_height, label='All datasets', color='#E1BE6A', edgecolor='black')
+    ax.barh(y + bar_height/2, df_pivot_sorted['Removal of Dryad and TDR datasets'], height=bar_height, label='Removal of Dryad and TDR datasets', color='#40B0A6', edgecolor='black')
+    ax.set_xlabel("Dataset count", fontsize=15)
+    ax.set_yticks(y)
+    ax.set_yticklabels(df_pivot_sorted.index, fontsize=14)
+    ax.set_title("Distribution of datasets by identified license", fontsize=16)
+    ax.set_facecolor('#f7f7f7')
+    ax.grid(True, which='both', color='white', linestyle='-', linewidth=1.5)
+    ax.tick_params(axis='x', which='major', labelsize=14)
+    ax.set_axisbelow(True)
+    ax.legend(loc='lower right')
+    plt.tight_layout()
     plot_path = os.path.join(plots_dir, plot_filename)
     plt.savefig(plot_path, format=plotFormat)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
@@ -636,25 +706,25 @@ if filtered_df is not None:
     long_formatUT_df['source'] = long_formatUT_df['year_column'].map(repo_mapping)
 
     # Plotting
-    fig, axs = plt.subplots(2, 1, figsize=(10, 12))
+    fig, axs = plt.subplots(2, 1, figsize=(10, 8))
     color_map = {
         'registeredYear': 'blue',
         'createdYear': 'brown',
-        'publicationYear (DataCite)': 'red',
-        'publicationYear (Dryad)': 'green',
+        'publicationYear (DataCite)': '#D67AB1',
+        'publicationYear (Dryad)': '#8DAB7F',
         'issuedYear': 'purple',
-        'availableYear': 'orange'
+        'availableYear': '#EF8354'
     }
 
     # Full dataset plot
     for year_column in long_format_df['year_column'].unique():
         subset = long_format_df[long_format_df['year_column'] == year_column]
         axs[1].plot(subset['year'], subset['count'], linewidth=3.5, label=year_column, color=color_map.get(year_column, 'black'))
-    axs[1].set_title('All Dryad datasets', fontsize=15)
+    axs[1].set_title('All Dryad datasets', fontsize=16)
     axs[1].set_xlabel("")
-    axs[1].set_ylabel("Dataset count")
-    axs[1].tick_params(axis='x', labelsize=12)
-    axs[1].tick_params(axis='y', labelsize=12)
+    axs[1].set_ylabel("Dataset count", fontsize=15)
+    axs[1].tick_params(axis='x', labelsize=14)
+    axs[1].tick_params(axis='y', labelsize=14)
     axs[1].set_facecolor('#f7f7f7')
     axs[1].grid(True, which='both', color='white', linestyle='-', linewidth=1.5)
     axs[1].set_axisbelow(True)
@@ -667,11 +737,11 @@ if filtered_df is not None:
     for year_column in long_formatUT_df['year_column'].unique():
         subset = long_formatUT_df[long_formatUT_df['year_column'] == year_column]
         axs[0].plot(subset['year'], subset['count'], linewidth=3.5, label=year_column, color=color_map.get(year_column, 'black'))
-    axs[0].set_title('UT Austin-affiliated Dryad datasets', fontsize=15)
+    axs[0].set_title('UT Austin-affiliated Dryad datasets', fontsize=16)
     axs[0].set_xlabel("")
-    axs[0].set_ylabel("Dataset count")
-    axs[0].tick_params(axis='x', labelsize=12)
-    axs[0].tick_params(axis='y', labelsize=12)
+    axs[0].set_ylabel("Dataset count", fontsize=15)
+    axs[0].tick_params(axis='x', labelsize=14)
+    axs[0].tick_params(axis='y', labelsize=14)
     axs[0].set_facecolor('#f7f7f7')
     axs[0].grid(True, which='both', color='white', linestyle='-', linewidth=1.5)
     axs[0].set_axisbelow(True)
@@ -702,62 +772,81 @@ if filtered_df is not None:
     print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
 
 #RADS reanalysis (versions)
-patternC = '_RADS-deduplication-reanalysis-summary.csv'
+patternC = '_RADS-figshare-datasets-progressive-filtering-summary.csv'
 df_rads = load_most_recent_file(outputs_dir, patternC)
 
 patternD = 'figshare-associated-articles-merged.csv'
 df_rads_figshare_articles = load_most_recent_file(outputs_dir, patternD)
 
-### Authorship position of UT researcher
-if df_rads_figshare_articles is not None:
-    plot_filename = f"{todayDate}_RADS-linked-figshare-articles.{plotFormat}"
-    journalCount = df_rads_figshare_articles['journal'].value_counts(ascending=True)
+# ###Journals linked to RADS Figshare deposits
+# if df_rads_figshare_articles is not None:
+#     plot_filename = f"{todayDate}_RADS-linked-figshare-articles.{plotFormat}"
+#     journalCount = df_rads_figshare_articles['journal'].value_counts(ascending=True)
     
-    color_map = {
-        'Springer Nature': '#bf5700',
-        'CABI Publishing': "#76a0ee"
-    }
+#     color_map = {
+#         'Springer Nature': '#bf5700',
+#         'CABI Publishing': "#76a0ee"
+#     }
 
-    # Ensure the colors are in the same order as the columns
-    colors = [color_map.get(position, '#cccccc') for position in journalCount.index]
+#     # Ensure the colors are in the same order as the columns
+#     colors = [color_map.get(position, '#cccccc') for position in journalCount.index]
 
-    fig, ax = plt.subplots(figsize=(10, 7))
-    bars = ax.barh(journalCount.index, journalCount.values, color=colors, edgecolor='black')
-    ax.set_xlabel("Article count", fontsize=15)
-    ax.set_ylabel("")
-    ax.set_title("Distribution of linked Figshare articles", fontsize=16)
-    ax.set_facecolor('#f7f7f7')
-    ax.grid(True, which='both', color='white', linestyle='-', linewidth=1.5)
-    ax.tick_params(axis='both', which='major', labelsize=14)
-    ax.set_axisbelow(True)
-    plt.tight_layout()
-    plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat)
-    print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
+#     fig, ax = plt.subplots(figsize=(10, 7))
+#     bars = ax.barh(journalCount.index, journalCount.values, color=colors, edgecolor='black')
+#     ax.set_xlabel("Article count", fontsize=15)
+#     ax.set_ylabel("")
+#     ax.set_title("Distribution of linked Figshare articles", fontsize=16)
+#     ax.set_facecolor('#f7f7f7')
+#     ax.grid(True, which='both', color='white', linestyle='-', linewidth=1.5)
+#     ax.tick_params(axis='both', which='major', labelsize=14)
+#     ax.set_axisbelow(True)
+#     plt.tight_layout()
+#     plot_path = os.path.join(plots_dir, plot_filename)
+#     plt.savefig(plot_path, format=plotFormat)
+#     print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
 
 if df_rads is not None:
+    #get proportions of each count
+    original_counts = df_rads[df_rads['type'] == 'Original'][['institution', 'entry_count']]
+    original_counts = original_counts.rename(columns={'entry_count': 'original_count'})
+    df_rads = df_rads.merge(original_counts, on='institution')
+    df_rads['proportion'] = df_rads['entry_count'] / df_rads['original_count']
+
     plot_filename = f"{todayDate}_RADS-version-reduction-comparison.{plotFormat}"
-    # Define colors for each status
-    status_colors = {
-        'original': "#205a84",
-        'version removal': "#5a86c5",
-        'figshare consolidation': "#94d5eb"
+
+    # Define colors
+    type_colors = {
+        'Original': "#8e1804",
+        'Versions removed': "#d35b5b",
+        'Consolidation': "#ebb8b5"
     }
 
     # Create subplots
-    fig, axs = plt.subplots(len(df_rads['publisher'].unique()), 1, figsize=(10, 15), sharex=True)
+    institutions = df_rads['institution'].unique()
+    fig, axs = plt.subplots(len(institutions), 1, figsize=(10, 10), sharex=True)
 
-    # Plot each publisher in its own subplot
-    for i, publisher in enumerate(df_rads['publisher'].unique()):
-        subset = df_rads[df_rads['publisher'] == publisher]
+    # Plot each institution
+    for i, institution in enumerate(institutions):
+        subset = df_rads[df_rads['institution'] == institution].sort_values(by='proportion', ascending=True)
         ax = axs[i]
-        for status in subset['status'].unique():
-            status_subset = subset[subset['status'] == status]
-            ax.barh(status_subset['status'], status_subset['count'], color=status_colors[status], label=status)
-        ax.set_title(publisher)
-        ax.set_xlabel('Count')
-        ax.set_ylabel('Status')
-        ax.legend(title='Status')
+        for _, row in subset.iterrows():
+            ax.barh(row['type'], row['proportion'], color=type_colors[row['type']])
+        ax.set_title(institution, fontsize=15)
+        ax.set_ylabel('')
+        ax.set_xlim(0, 1)
+        ax.set_xticks(np.arange(0.0, 1.1, 0.1))
+        ax.set_xticklabels([f"{x:.1f}" for x in np.arange(0.0, 1.1, 0.1)], fontsize=12)
+        ax.tick_params(axis='x', labelbottom=True)
+        ax.tick_params(axis='y', labelsize=14)
+        ax.grid(True, which='both', color='white', linestyle='-', linewidth=1.5)
+        ax.set_facecolor('#f7f7f7')
+        ax.set_axisbelow(True)
+        if i == len(institutions) - 1:
+            ax.set_xlabel('Proportion', fontsize=14)
+        else:
+            ax.set_xlabel('')
+
+    plt.tight_layout()
 
     plot_path = os.path.join(plots_dir, plot_filename)
     plt.savefig(plot_path, format=plotFormat)
