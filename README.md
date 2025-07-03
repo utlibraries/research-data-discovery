@@ -1,4 +1,4 @@
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![DOI](https://zenodo.org/badge/858925551.svg)](https://zenodo.org/doi/10.5281/zenodo.15786308) [![arXiv](https://img.shields.io/badge/arXiv-2507.01228-b31b1b.svg?style=flat)](https://arxiv.org/abs/2507.01228)
 
 # Scripted process for retrieving metadata on institutional-affiliated research dataset publications
 
