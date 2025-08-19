@@ -10,11 +10,40 @@ import requests
 import time
 
 #operator for quick test runs
-test = False
+test = True
+
 #operator for resource type(s) to query for (use OR and put in parentheses for multiple types)
+##GENERAL DataCite query
 resourceType = '(Dataset OR Software)'
+##create string to include in filenames based on resource type
+resourceType_cleaned = resourceType.replace('(', '').replace(')', '')
+resourceTypes = resourceType_cleaned.split(' OR ')
+resourceTypes_lower = [rt.strip().lower() for rt in resourceTypes]
+resourceFilename = '-'.join(resourceTypes_lower)
+##toggle based on whether resourceType is used in the API query
+resourceTypeFilter = True
+if resourceTypeFilter:
+    resourceFilename = resourceFilename
+else:
+    resourceFilename = 'all-resource-types'
+
+#operator for resource type(s) to query for (use OR and put in parentheses for multiple types)
+##Figshare workflow
+figshareResourceType = '(Dataset OR Software)'
+##create string to include in filenames based on resource type
+figshareResourceType_cleaned = figshareResourceType.replace('(', '').replace(')', '')
+figshareResourceTypes = figshareResourceType_cleaned.split(' OR ')
+figshareResourceTypes_lower = [rt.strip().lower() for rt in figshareResourceTypes]
+figshareResourceFilename = '-'.join(figshareResourceTypes_lower)
+##toggle based on whether resourceType is used in the API query
+FigshareResourceTypeFilter = True
+if FigshareResourceTypeFilter:
+    figshareResourceFilename = figshareResourceFilename
+else:
+    figshareResourceFilename = 'all-resource-types'
+
 #toggle for cross-validation steps
-crossValidate = True
+crossValidate = False
 ##toggle for Dataverse cross-validation specifically
 dataverse = True
 ##toggle for de-duplicating partial Dataverse replicates (multiple deposits for one manuscript within one dataverse) - see README for details
@@ -29,7 +58,7 @@ figshareWorkflow1 = True
 figshareWorkflow2 = False
 
 ##if you have done a previous DataCite retrieval and don't want to re-run the entire main process (skip to Figshare steps)
-loadPreviousData = False
+loadPreviousData = True
 #if you have done a previous DataCite retrieval and Figshare workflow 1 and don't want to re-run these
 loadPreviousDataPlus = False
 #toggle for executing NCBI process
@@ -58,7 +87,7 @@ loadPreviousDataPlusNCBI = False
 loadCrossrefData = True
 
 #conditional toggles, if loading in previous data, automatically set certain other toggles to False regardless of how they are set
-##should minimize how much you need to edit multiple toggles (WIP)
+##should minimize how much you need to edit multiple toggles (W.I.P.)
 if loadPreviousDataPlus:
     figshareWorkflow1 = False
     figshareWorkflow2 = False
@@ -123,12 +152,20 @@ params_dryad= {
     'per_page': config['VARIABLES']['PAGE_SIZES']['dryad'],
 }
 
-params_datacite = {
-    'affiliation': 'true',
-    'query': f'(creators.affiliation.name:({institution_query}) OR creators.name:({institution_query}) OR contributors.affiliation.name:({institution_query}) OR contributors.name:({institution_query})) AND types.resourceTypeGeneral:{resourceType}',
-    'page[size]': config['VARIABLES']['PAGE_SIZES']['datacite'],
-    'page[cursor]': 1,
-}
+if resourceTypeFilter:
+    params_datacite = {
+        'affiliation': 'true',
+        'query': f'(creators.affiliation.name:({institution_query}) OR creators.name:({institution_query}) OR contributors.affiliation.name:({institution_query}) OR contributors.name:({institution_query})) AND types.resourceTypeGeneral:{resourceType}',
+        'page[size]': config['VARIABLES']['PAGE_SIZES']['datacite'],
+        'page[cursor]': 1,
+    }
+else:
+    params_datacite = {
+        'affiliation': 'true',
+        'query': f'(creators.affiliation.name:({institution_query}) OR creators.name:({institution_query}) OR contributors.affiliation.name:({institution_query}) OR contributors.name:({institution_query}))',
+        'page[size]': config['VARIABLES']['PAGE_SIZES']['datacite'],
+        'page[cursor]': 1,
+    }
 
 headers_dataverse = {
     'X-Dataverse-key': config['KEYS']['dataverseToken']
@@ -572,7 +609,7 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
         })
 
     df_datacite_initial = pd.json_normalize(data_select_datacite)
-    df_datacite_initial.to_csv(f'outputs/{todayDate}_datacite-initial-output.csv')
+    df_datacite_initial.to_csv(f'outputs/{todayDate}_datacite-initial-output_{resourceFilename}.csv')
 
     if crossValidate:
         print('Dryad step\n')
@@ -1124,7 +1161,7 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
     df_datacite = df_sorted.drop_duplicates(subset=['title', 'first_author', 'relationType', 'relatedIdentifier', 'containerIdentifier'], keep='first')
 
     #the file exported here is intended only to be used to compare affiliation source fields; the fields will be dropped in later steps in the workflow
-    df_datacite.to_csv(f'outputs/{todayDate}_datacite-output-for-affiliation-source.csv', index=False) 
+    df_datacite.to_csv(f'outputs/{todayDate}_datacite-output-for-affiliation-source_{resourceFilename}.csv', index=False) 
 
     #additional metadata assessment steps, fields are also dropped in later steps
     ##convert mimeType to readable format
@@ -1190,7 +1227,7 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
     df_datacite.loc[df_datacite['rights'].str.contains('UCAR'), 'rights_standardized'] = 'Custom terms'
     df_datacite.loc[df_datacite['rights'] == '', 'rights_standardized'] = 'Rights unclear'
 
-    df_datacite.to_csv(f'outputs/{todayDate}_datacite-output-for-metadata-assessment.csv', index=False) 
+    df_datacite.to_csv(f'outputs/{todayDate}_datacite-output-for-metadata-assessment_{resourceFilename}.csv', index=False) 
 
     #subsetting dataframe
     df_datacite_pruned = df_datacite[['publisher', 'doi', 'publicationYear', 'title', 'first_author', 'first_affiliation', 'last_author', 'last_affiliation', 'source', 'type']]
@@ -1230,13 +1267,13 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
 
     #adding categorization
     ##identifying institutional repositories that are not the Texas Data Repository
-    df_datacite_pruned['non_TDR_IR'] = np.where(df_datacite_pruned['publisher'].str.contains('University|UCLA|UNC|Harvard|ASU|Dataverse', case=True), 'non-TDR institutional', 'not university or TDR')
+    df_datacite_pruned['non_TDR_IR'] = np.where(df_datacite_pruned['publisher'].str.contains('University|UCLA|UNC|Harvard|ASU Library|Dataverse|DaRUS', case=True), 'non-TDR institutional', 'not university or TDR')
     df_datacite_pruned['US_federal'] = np.where(df_datacite_pruned['publisher'].str.contains('NOAA|NIH|NSF|U.S.|DOE|DOD|DOI|National|Designsafe', case=True), 'Federal US repo', 'not federal US repo')
-    df_datacite_pruned['GREI'] = np.where(df_datacite_pruned['publisher'].str.contains('Dryad|figshare|Zenodo|Vivli|Mendeley|Open Science Framework', case=False), 'GREI member', 'not GREI member')
-
+    df_datacite_pruned['GREI'] = np.where(df_datacite_pruned['publisher'].str.contains('Dryad|figshare|Harvard|Zenodo|Vivli|Mendeley|Open Science Framework', case=False), 'GREI member', 'not GREI member')
+    df_datacite_pruned['scope'] = np.where(df_datacite_pruned['publisher'].str.contains('Dryad|figshare|Zenodo|Mendeley|Open Science Framework|4TU|ASU Library|Boise State|Borealis|Dataverse|Oregon|Princeton|University|Wyoming|DaRUS', case=False), 'Generalist', 'Specialist')
     df_datacite_pruned = df_datacite_pruned.rename(columns={'publisher': 'repository'})
 
-    df_datacite_pruned.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe.csv', index=False)
+    df_datacite_pruned.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe_{resourceFilename}.csv', index=False)
 
 ###### FIGSHARE WORKFLOW ######
 #These sections are for cleaning up identified figshare deposits or identifying associated ones that lack affiliation metadata
@@ -1288,18 +1325,29 @@ if figshareWorkflow1:
             page_limit_openalex = config['VARIABLES']['PAGE_LIMITS']['openalex_test'] if test else config['VARIABLES']['PAGE_LIMITS']['openalex_prod']
             #DataCite params (different from general affiliation-based retrieval params)
             ## !! Warning: if you do not set a resourceType in the query (recommended if you want to get broad coverage), this will be a very large retrieval. In the test env, there may not be enough records to find a match with a university-affiliated article !!
-            params_datacite_figshare = {
-                'affiliation': 'true',
-                'query': f'(publisher:"{publisher_name}") AND types.resourceTypeGeneral:"{resourceType}"',
+            
+            #reset to default after large-scale general retrieval through DataCite
+            page_limit_datacite = config['VARIABLES']['PAGE_LIMITS']['datacite_test'] if test else config['VARIABLES']['PAGE_LIMITS']['datacite_prod']
+            page_start_datacite = config['VARIABLES']['PAGE_STARTS']['datacite']
+            if FigshareResourceTypeFilter:
+                params_datacite_figshare = {
+                    # 'affiliation': 'true',
+                    'query': f'(publisher:"{publisher_name}" AND types.resourceTypeGeneral:{figshareResourceType})',
+                    'page[size]': config['VARIABLES']['PAGE_SIZES']['datacite'],
+                    'page[cursor]': 1,
+                }
+            else:
+                params_datacite_figshare = {
+                # 'affiliation': 'true',
+                'query': f'(publisher:"{publisher_name}")',
                 'page[size]': config['VARIABLES']['PAGE_SIZES']['datacite'],
                 'page[cursor]': 1,
-            }
-            page_start_datacite = config['VARIABLES']['PAGE_STARTS']['datacite'] #reset to 0 (default) after large-scale general retrieval through DataCite
+                }
 
             print(f'Starting DataCite retrieval for {publisher_name}.\n')
-            data_datacite = retrieve_all_data_datacite(url_datacite, params_datacite_figshare)
-            print(f'Number of datasets found by DataCite API: {len(data_datacite)}\n')
-            for item in data_datacite:
+            data_datacite_figshare = retrieve_all_data_datacite(url_datacite, params_datacite_figshare)
+            print(f'Number of datasets found by DataCite API: {len(data_datacite_figshare)}\n')
+            for item in data_datacite_figshare:
                 attributes = item.get('attributes', {})
                 doi_dc = attributes.get('doi', None)
                 publisher_dc = attributes.get('publisher', '')
@@ -1363,7 +1411,7 @@ if figshareWorkflow1:
             continue 
 
     df_datacite_initial = pd.json_normalize(data_select_datacite)
-    df_datacite_initial.to_csv(f'outputs/{todayDate}_figshare-discovery-initial.csv', index=False)
+    df_datacite_initial.to_csv(f'outputs/{todayDate}_figshare-discovery-initial_{figshareResourceFilename}.csv', index=False)
 
     if countVersions:
         ##These steps will count different versions as distinct datasets and remove the 'parent' (redundant with most recent version)
@@ -1387,14 +1435,14 @@ if figshareWorkflow1:
     #output all UT linked deposits, no deduplication (for Figshare validator workflow)
     df_openalex_datacite = pd.merge(df_openalex, df_datacite_supplement, on='relatedIdentifier', how='left')
     df_openalex_datacite = df_openalex_datacite[df_openalex_datacite['doi'].notnull()]
-    df_openalex_datacite.to_csv(f'outputs/{todayDate}_figshare-discovery-all.csv', index=False)
+    df_openalex_datacite.to_csv(f'outputs/{todayDate}_figshare-discovery-all_{figshareResourceFilename}.csv', index=False)
     df_openalex_datacite = df_openalex_datacite.drop_duplicates(subset='relatedIdentifier', keep='first')
 
     #working with deduplicated dataset for rest of process
     df_openalex_datacite_dedup = pd.merge(df_openalex, df_datacite_supplement_dedup, on='relatedIdentifier', how='left')
     new_figshare = df_openalex_datacite_dedup[df_openalex_datacite_dedup['doi'].notnull()]
     new_figshare = new_figshare.drop_duplicates(subset='doi', keep='first')
-    new_figshare.to_csv(f'outputs/{todayDate}_figshare-discovery-deduplicated.csv', index=False)
+    new_figshare.to_csv(f'outputs/{todayDate}_figshare-discovery-deduplicated_{figshareResourceFilename}.csv', index=False)
     new_figshare = new_figshare[['doi','publicationYear','title', 'first_author', 'first_affiliation', 'last_author', 'last_affiliation', 'type']]
 
     #standardizing licenses
@@ -1416,11 +1464,12 @@ if figshareWorkflow1:
     new_figshare['non_TDR_IR'] = 'not university or TDR'
     new_figshare['US_federal'] = 'not federal US repo'
     new_figshare['GREI'] = 'GREI member'
+    new_figshare['scope'] = 'Generalist'
 
     df_datacite_plus = pd.concat([df_datacite_pruned, new_figshare], ignore_index=True)
     #de-duplicating in case some DOIs were caught twice (for the few publishers that do cross-walk affiliation metadata), you could use a sorting method to determine which one to 'keep'; the default will retain the ones returned from the main workflow
     df_datacite_plus_dedup = df_datacite_plus.drop_duplicates(subset='doi', keep='first')
-    df_datacite_plus_dedup.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-figshare.csv', index=False)
+    df_datacite_plus_dedup.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-figshare_{resourceFilename}.csv', index=False)
 
 ### This codeblock identifies publishers known to create figshare deposits (can be any object resource type) with a '.s00*' system, finds affiliated articles, constructs a hypothetical figshare DOI for them, and tests its existence ###
 # !! Warning: Depending on the number of articles, this can be an extremely time-intensive process !! #
@@ -1693,6 +1742,7 @@ if ncbiWorkflow:
     ncbi_df_select['non_TDR_IR'] = 'not university or TDR'
     ncbi_df_select['US_federal'] = 'Federal US repo'
     ncbi_df_select['GREI'] = 'not GREI member'
+    ncbi_df_select['scope'] = 'Specialist'
     # ncbi_df_select['rights'] = 'Rights unclear'
     # ncbi_df_select['rights_standardized'] = 'Rights unclear'
 
@@ -1718,7 +1768,7 @@ if ncbiWorkflow:
             print(f'No file with "{pattern}" was found in the directory "{directory}".')
 
     df_datacite_plus_ncbi = pd.concat([df_datacite_plus_dedup, ncbi_df_select], ignore_index=True)
-    df_datacite_plus_ncbi.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-figshare-ncbi.csv', index=False)
+    df_datacite_plus_ncbi.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-figshare-ncbi_{resourceFilename}.csv', index=False)
 
     # ncbi_df_select.to_csv(f'outputs/{todayDate}_NCBI-select-output-aligned.csv', index=False)
 
@@ -1771,19 +1821,19 @@ if any([loadPreviousData, loadPreviousDataPlus, loadPreviousDataPlusNCBI]) and l
 
     if loadPreviousData:
         df_datacite_plus_crossref = pd.concat([df_datacite_pruned, crossref_true_datasets], ignore_index=True)
-        df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-crossref.csv', index=False)
+        df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-crossref_{resourceFilename}.csv', index=False)
     elif loadPreviousDataPlus:
         df_datacite_plus_crossref = pd.concat([df_datacite_plus, crossref_true_datasets], ignore_index=True)
-        df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-figshare-crossref.csv', index=False)
+        df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-figshare-crossref_{resourceFilename}.csv', index=False)
     elif loadPreviousDataPlusNCBI:
         df_datacite_plus_crossref = pd.concat([df_datacite_plus_ncbi, crossref_true_datasets], ignore_index=True)
-        df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-figshare-ncbi-crossref.csv', index=False)
+        df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-figshare-ncbi-crossref_{resourceFilename}.csv', index=False)
     elif not loadPreviousData and not loadPreviousData and not figshareWorkflow1:
         df_datacite_plus_crossref = pd.concat([df_datacite_pruned, crossref_true_datasets], ignore_index=True)
-        df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-crossref.csv', index=False)
+        df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-crossref_{resourceFilename}.csv', index=False)
     elif not loadPreviousData and not loadPreviousData and figshareWorkflow1:
         df_datacite_plus_crossref = pd.concat([df_datacite_plus, crossref_true_datasets], ignore_index=True)
-        df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-figshare-crossref.csv', index=False)
+        df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-figshare-crossref_{resourceFilename}.csv', index=False)
 
 if not any([loadPreviousData, loadPreviousDataPlus, loadPreviousDataPlusNCBI]) and loadCrossrefData:
     print('\nReading in existing Crossref output file\n')
@@ -1807,15 +1857,13 @@ if not any([loadPreviousData, loadPreviousDataPlus, loadPreviousDataPlusNCBI]) a
 
     if not df_datacite_pruned.empty and df_datacite_plus_dedup.empty:
         df_datacite_plus_crossref = pd.concat([df_datacite_pruned, crossref_true_datasets], ignore_index=True)
-        df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-crossref.csv', index=False)
+        df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-crossref_{resourceFilename}.csv', index=False)
     elif not df_datacite_plus_dedup.empty and df_datacite_plus_ncbi.empty:
         df_datacite_plus_crossref = pd.concat([df_datacite_plus, crossref_true_datasets], ignore_index=True)
-        df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-figshare-crossref.csv', index=False)
+        df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-figshare-crossref_{resourceFilename}.csv', index=False)
     elif not df_datacite_plus_ncbi.empty:
         df_datacite_plus_crossref = pd.concat([df_datacite_plus_ncbi, crossref_true_datasets], ignore_index=True)
-        df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-figshare-ncbi-crossref.csv', index=False)
+        df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-figshare-ncbi-crossref_{resourceFilename}.csv', index=False)
 
 print('Done.\n')
 print(f'Time to run: {datetime.now() - startTime}')
-
-

@@ -2,6 +2,7 @@ import requests
 import pandas as pd
 import json
 import math
+import numpy as np
 import os
 from datetime import datetime
 
@@ -212,6 +213,7 @@ df_data_select_crossref_pruned['repository2'] = 'Other'
 df_data_select_crossref_pruned['non_TDR_IR'] = 'not university or TDR'
 df_data_select_crossref_pruned['US_federal'] = 'not federal US repo'
 df_data_select_crossref_pruned['GREI'] = 'not GREI member'
+df_data_select_crossref_pruned['scope'] = np.where(df_data_select_crossref_pruned['repository'].str.contains('Dryad|figshare|Zenodo|Mendeley|Open Science Framework|4TU|ASU Library|Boise State|Borealis|Dataverse|Oregon|Princeton|University|Wyoming|DaRUS', case=False), 'Generalist', 'Specialist')
 
 #will need to be customized for a different institution, although some are likely to recur (e.g., H1, Authorea)
 df_data_select_crossref_pruned_repos = df_data_select_crossref_pruned[~df_data_select_crossref_pruned['repository'].str.contains('H1 Connect|Wiley|NumFOCUS|Exploration Geophysicists|College of Radiology')]
