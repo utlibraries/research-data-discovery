@@ -13,6 +13,8 @@ if tiff:
     plotFormat = 'tiff'
 else:
     plotFormat = 'png'
+#variable for plot DPI
+dpi = 1200
 
 script_dir = os.getcwd()
 parent_dir = os.path.abspath(os.path.join(os.getcwd(), '..'))
@@ -104,7 +106,7 @@ if df_datacite is not None:
     plt.tight_layout()
     # plt.show()
     plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat)
+    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
 
     print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
 
@@ -125,7 +127,7 @@ if df_datacite is not None:
     plt.tight_layout()
     # plt.show()
     plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat)
+    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
 
 ### Repository count
@@ -153,7 +155,7 @@ if df_all_repos_plus is not None:
     plt.tight_layout()
     # plt.show()
     plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat)
+    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
 
     ### only for first/last author UT datasets
@@ -178,7 +180,7 @@ if df_all_repos_plus is not None:
     plt.tight_layout()
     # plt.show()
     plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat)
+    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
 
 
@@ -199,7 +201,32 @@ if df_extra_figshare is not None:
     plt.tight_layout()
     # plt.show()
     plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat)
+    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
+
+### Mendeley Data deposit volume over time
+if df_all_repos is not None:
+    plot_filename = f"{todayDate}_mendeley-data-by-year.{plotFormat}"
+    mendeley = df_all_repos[df_all_repos['repository'] == 'Mendeley Data']
+    mendeley_annual = mendeley['publicationYear'].value_counts(ascending=True)
+    fig, ax1 = plt.subplots(figsize=(10, 7))
+    bars = ax1.bar(mendeley_annual.index, mendeley_annual.values, color='#ab2328', edgecolor='black')
+    ax1.set_xlabel("")
+    ax1.set_ylabel("Dataset count", fontsize=15)
+    ax1.set_title("Annual count of affiliated Mendeley Data deposits", fontsize=16)
+    ax1.set_facecolor('#f7f7f7')
+    ax1.grid(True, which='both', color='white', linestyle='-', linewidth=1.5)
+    ax1.tick_params(axis='both', which='major', labelsize=14)
+    ax1.set_axisbelow(True)
+    #standardize axes
+    ax1.set_xlim(2016, 2026)
+    ax1.set_xticks(list(range(2016, 2026, 2)) + [2026])
+    ax1.set_ylim(0, 15)   
+    ax1.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{int(x)}'))
+    plt.tight_layout()
+    # plt.show()
+    plot_path = os.path.join(plots_dir, plot_filename)
+    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
 
 ### Repository deposit volume over time
@@ -269,7 +296,7 @@ if df_all_repos_plus is not None:
     plt.tight_layout()
 
     plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat)
+    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
 
     ### only for first/last author UT datasets
@@ -312,7 +339,7 @@ if df_all_repos_plus is not None:
     plt.tight_layout()
 
     plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat)
+    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
 
 ### Authorship position of UT researcher
@@ -343,10 +370,10 @@ if df_all_repos_plus is not None:
     ax.set_axisbelow(True)
     plt.tight_layout()
     plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat)
+    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
 
-    plot_filename = f"{todayDate}_extra-figshare-counts_top-repos.{plotFormat}"
+    plot_filename = f"{todayDate}_author-contributions-proxy.{plotFormat}"
     topRepos = df_all_repos_plus[df_all_repos_plus['repository'].str.contains('Dryad|Texas Data Repository|Zenodo|Harvard Dataverse')]
     #create binary column
     topRepos['affiliated'] = topRepos['uni_lead'].apply(
@@ -374,7 +401,7 @@ if df_all_repos_plus is not None:
     plt.legend(title='Author Position', title_fontsize='13', fontsize='12', ncol=2, loc='lower center', bbox_to_anchor=(0.5, -0.33))
     plt.tight_layout()
     plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat)
+    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
 
 ###metadata assessments
@@ -423,7 +450,7 @@ if df_metadata is not None:
     plt.tight_layout()
 
     plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat)
+    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
 
     # plot_filename = f"{todayDate}_only-software.{plotFormat}"
@@ -441,7 +468,7 @@ if df_metadata is not None:
     # plt.tight_layout()
 
     # plot_path = os.path.join(plots_dir, plot_filename)
-    # plt.savefig(plot_path, format=plotFormat)
+    # plt.savefig(plot_path, format=plotFormat, dpi=dpi)
     # print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
 
     ## file size
@@ -490,16 +517,32 @@ if df_metadata is not None:
         bins=bins,
         labels=labels
     )
-    df_metadata['size_bin'] = df_metadata['size_bin'].cat.add_categories('Empty')
-    df_metadata.loc[df_metadata['depositSize'].isna(), 'size_bin'] = 'Empty'
+    df_metadata['size_bin'] = df_metadata['size_bin'].cat.add_categories(['Empty', 'No data'])
+    df_metadata.loc[df_metadata['depositSize'].isna(), 'size_bin'] = 'No data'
     df_metadata.loc[(df_metadata['depositSize'] <= 0), 'size_bin'] = 'Empty'
     plot_filename = f"{todayDate}_datasets-by-size-bin.{plotFormat}"
     
-    datasets_size = df_metadata['size_bin'].value_counts(ascending=True).reset_index()
+    #count the occurrences of each size_bin, but keep the categorical order
+    datasets_size = df_metadata['size_bin'].value_counts(sort=False).reset_index()
     datasets_size.columns = ['size_bin', 'count']
+
+    datasets_size = datasets_size.sort_values(by='size_bin', key=lambda x: x.cat.codes)
+
+    # Separate the "Empty" and "No data" rows
+    empty_row = datasets_size[datasets_size['size_bin'] == 'Empty']
+    no_data_row = datasets_size[datasets_size['size_bin'] == 'No data']
+
+    # Remove "Empty" and "No data" from the main DataFrame
+    datasets_size = datasets_size[
+        (datasets_size['size_bin'] != 'Empty') & (datasets_size['size_bin'] != 'No data')
+    ]
+
+    # Append "Empty" and "No data" to the bottom in the desired order
+    datasets_size = pd.concat([datasets_size, empty_row, no_data_row], ignore_index=True)
+
         
     fig, ax = plt.subplots(figsize=(10, 7))
-    bars = ax.barh(datasets_size['size_bin'], datasets_size['count'], color='#3a71c9', edgecolor='black')
+    bars = ax.barh(datasets_size['size_bin'], datasets_size['count'], color="#9b9f7a", edgecolor='black')
     ax.set_ylabel("Dataset count", fontsize=15)
     ax.set_xlabel("")
     ax.set_title("Distribution of published datasets by size bin", fontsize=16)
@@ -507,11 +550,12 @@ if df_metadata is not None:
     ax.grid(True, which='both', color='white', linestyle='-', linewidth=1.5)
     ax.tick_params(axis='both', which='major', labelsize=14)
     ax.set_axisbelow(True)
+    plt.tight_layout()
     # ax.set_xticks(datasets_size['size_bin'])
     # ax.set_xticklabels(datasets_size['size_bin'])
 
     plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat)
+    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
 
     ##licensing
@@ -531,7 +575,7 @@ if df_metadata is not None:
     plt.tight_layout()
 
     plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat)
+    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
 
     ###licensing minus Dryad and TDR (CC0 default or mandatory)
@@ -551,7 +595,7 @@ if df_metadata is not None:
     plt.tight_layout()
 
     plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat)
+    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
 
     ###combined licensing
@@ -584,7 +628,7 @@ if df_metadata is not None:
     ax.legend(loc='lower right')
     plt.tight_layout()
     plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat)
+    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
 
     ##descriptive words
@@ -592,7 +636,7 @@ if df_metadata is not None:
     descriptiveTitles = df_metadata['descriptive_word_count_title'].value_counts()
 
     fig, ax = plt.subplots(figsize=(10, 7))
-    bars = ax.bar(descriptiveTitles.index, descriptiveTitles.values, edgecolor='black')
+    bars = ax.bar(descriptiveTitles.index, descriptiveTitles.values, edgecolor='black', color="#7d4d6a")
     ax.set_xlabel("Word count", fontsize=15)
     ax.set_ylabel("Dataset count")
     ax.set_title("Distribution of datasets by number of descriptive words in the title", fontsize=16)
@@ -603,7 +647,7 @@ if df_metadata is not None:
     plt.tight_layout()
 
     plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat)
+    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
 
     ##non-descriptive words
@@ -622,7 +666,7 @@ if df_metadata is not None:
     plt.tight_layout()
 
     plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat)
+    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
 
 ##### FOR ACCESSING FILES IN ACCESSORY-OUTPUTS #####
@@ -768,7 +812,7 @@ if filtered_df is not None:
     plt.tight_layout()
 
     plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat)
+    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
 
 #RADS reanalysis (versions)
@@ -802,7 +846,7 @@ df_rads_figshare_articles = load_most_recent_file(outputs_dir, patternD)
 #     ax.set_axisbelow(True)
 #     plt.tight_layout()
 #     plot_path = os.path.join(plots_dir, plot_filename)
-#     plt.savefig(plot_path, format=plotFormat)
+#     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
 #     print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
 
 if df_rads is not None:
@@ -849,5 +893,5 @@ if df_rads is not None:
     plt.tight_layout()
 
     plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat)
+    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
