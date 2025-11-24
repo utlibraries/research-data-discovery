@@ -9,19 +9,24 @@ import re
 import requests
 import time
 
+#read in config file
+with open('config.json', 'r') as file:
+    config = json.load(file)
+
 #operator for quick test runs
-test = True
+test = config['TOGGLES']['test']
 
 #operator for resource type(s) to query for (use OR and put in parentheses for multiple types)
 ##GENERAL DataCite query
 resourceType = '(Dataset OR Software)'
+
 ##create string to include in filenames based on resource type
 resourceType_cleaned = resourceType.replace('(', '').replace(')', '')
 resourceTypes = resourceType_cleaned.split(' OR ')
 resourceTypes_lower = [rt.strip().lower() for rt in resourceTypes]
 resourceFilename = '-'.join(resourceTypes_lower)
 ##toggle based on whether resourceType is used in the API query
-resourceTypeFilter = True
+resourceTypeFilter = config['TOGGLES']['resourceTypeFilter']
 if resourceTypeFilter:
     resourceFilename = resourceFilename
 else:
@@ -36,38 +41,38 @@ figshareResourceTypes = figshareResourceType_cleaned.split(' OR ')
 figshareResourceTypes_lower = [rt.strip().lower() for rt in figshareResourceTypes]
 figshareResourceFilename = '-'.join(figshareResourceTypes_lower)
 ##toggle based on whether resourceType is used in the API query
-FigshareResourceTypeFilter = True
+FigshareResourceTypeFilter = config['TOGGLES']['FigshareResourceTypeFilter']
 if FigshareResourceTypeFilter:
     figshareResourceFilename = figshareResourceFilename
 else:
     figshareResourceFilename = 'all-resource-types'
 
 #toggle for cross-validation steps
-crossValidate = False
+crossValidate = config['TOGGLES']['crossValidate']
 ##toggle for Dataverse cross-validation specifically
-dataverse = True
+dataverse = config['TOGGLES']['dataverse']
 ##toggle for de-duplicating partial Dataverse replicates (multiple deposits for one manuscript within one dataverse) - see README for details
-dataverseDuplicates = False
+dataverseDuplicates = config['TOGGLES']['dataverseDuplicates']
 ##toggle for UT Austin specific edge cases (set to False if you are not at UT Austin)
-austin = True
+austin = config['TOGGLES']['austin']
 
 #toggles for executing Figshare processes (see README for details)
 ##looking for datasets with a journal publisher listed as publisher, X-ref'ing with university articles from that publisher
-figshareWorkflow1 = True
+figshareWorkflow1 = config['TOGGLES']['figshareWorkflow1']
 ##finding university articles from publisher that uses certain formula for Figshare DOIs, construct hypothetical DOI, test if it exists
-figshareWorkflow2 = False
+figshareWorkflow2 = config['TOGGLES']['figshareWorkflow2']
 
 ##if you have done a previous DataCite retrieval and don't want to re-run the entire main process (skip to Figshare steps)
-loadPreviousData = True
+loadPreviousData = config['TOGGLES']['loadPreviousData']
 #if you have done a previous DataCite retrieval and Figshare workflow 1 and don't want to re-run these
-loadPreviousDataPlus = False
+loadPreviousDataPlus = config['TOGGLES']['loadPreviousDataPlus']
 #toggle for executing NCBI process
-ncbiWorkflow = True
+ncbiWorkflow = config['TOGGLES']['ncbiWorkflow']
 ##loading package in only if running NCBI workflow
 if ncbiWorkflow:
     import xml.etree.ElementTree as ET
 #toggle for whether to use biopython approach to NCBI (TRUE = biopython; FALSE = Selenium)
-biopython = True
+biopython = config['TOGGLES']['biopython']
 ##loading packages in only if running NCBI workflow and depending on selection
 if biopython and ncbiWorkflow:
     from Bio import Entrez
@@ -80,11 +85,11 @@ elif not biopython and ncbiWorkflow:
     from selenium.webdriver.firefox.options import Options
 
 #toggle for skipping web retrieval of NCBI data (just XML to dataframe conversion)
-loadNCBIdata = False
+loadNCBIdata = config['TOGGLES']['loadNCBIdata']
 #toggle for loading previous DataCite + Figshare workflow 1 + NCBI
-loadPreviousDataPlusNCBI = False
+loadPreviousDataPlusNCBI = config['TOGGLES']['loadPreviousDataPlusNCBI']
 #toggle to load in externally generated Crossref data
-loadCrossrefData = True
+loadCrossrefData = config['TOGGLES']['loadCrossrefData']
 
 #conditional toggles, if loading in previous data, automatically set certain other toggles to False regardless of how they are set
 ##should minimize how much you need to edit multiple toggles (W.I.P.)
@@ -95,10 +100,6 @@ if loadPreviousDataPlusNCBI:
     figshareWorkflow1 = False
     figshareWorkflow2 = False
     ncbiWorkflow = False
-
-#read in config file
-with open('config.json', 'r') as file:
-    config = json.load(file)
 
 #creating directories
 if test:
@@ -131,6 +132,9 @@ email = config['EMAIL']['user_email']
 #create permutation string with OR for API parameters
 ut_variations = config['PERMUTATIONS']
 institution_query = ' OR '.join([f'"{variation}"' for variation in ut_variations])
+##if you need a smaller set of previously identified permutations for an easier API call
+ut_variations_small = config['PERMUTATIONS_IDENTIFIED']
+institution_query_small = ' OR '.join([f'"{variation}"' for variation in ut_variations_small])
 
 #pull in ROR ID (necessary for Dryad API)
 ror_id = config['INSTITUTION']['ror']
@@ -145,7 +149,7 @@ url_dryad = f'https://datadryad.org/api/v2/search?affiliation={ror_id}' #Dryad r
 url_datacite = 'https://api.datacite.org/dois'
 url_dataverse = 'https://dataverse.tdl.org/api/search/'
 url_figshare = 'https://api.figshare.com/v2/articles/{id}/files?page_size=10'
-url_openalex = 'https://api.openalex.org/works'
+url_openalex = 'https://api.openalex.org/works?'
 url_zenodo = 'https://zenodo.org/api/records'
 
 params_dryad= {
@@ -180,10 +184,10 @@ params_dataverse = {
     'per_page': config['VARIABLES']['PAGE_SIZES']['dataverse']
 }
 
-params_zenodo_data = {
-    'q': f'(creators.affiliation:({institution_query}) OR creators.name:({institution_query}) OR contributors.affiliation:({institution_query}) OR contributors.name:({institution_query}))',
+params_zenodo = {
+    'q': f'(creators.affiliation:({institution_query_small}) OR creators.name:({institution_query_small}) OR contributors.affiliation:({institution_query_small}) OR contributors.name:({institution_query_small})) AND (type:dataset OR type:software)',
     'size': config['VARIABLES']['PAGE_SIZES']['zenodo'],
-    'type': 'dataset',
+    # 'type': 'dataset',
     'access_token': config['KEYS']['zenodoToken']
 }
 
@@ -196,6 +200,28 @@ page_limit_openalex = config['VARIABLES']['PAGE_LIMITS']['openalex_test'] if tes
 page_start_datacite = config['VARIABLES']['PAGE_STARTS']['datacite']
 page_start_zenodo = config['VARIABLES']['PAGE_STARTS']['zenodo']
 page_size_zenodo = config['VARIABLES']['PAGE_SIZES']['zenodo']
+
+#defining some metadata assessment objects
+##assess 'descriptiveness of dataset title'
+words = config['WORDS']
+###add integers
+numbers = list(map(str, range(1, 1000000)))
+###combine all into a single set
+nondescriptive_words = set(
+    words['articles'] +
+    words['conjunctions'] +
+    words['prepositions'] +
+    words['auxiliary_verbs'] +
+    words['possessives'] +
+    words['descriptors'] +
+    words['order'] +
+    words['version'] +
+    numbers
+)
+##software formats
+softwareFormats = set(config['SOFTWARE_FORMATS'].values())
+##convert mimeType to readable format
+format_map = config['FORMAT_MAP']
 
 #define global functions
 ##retrieves single page of results
@@ -315,7 +341,7 @@ def retrieve_all_data_dataverse(url, params, headers):
 ##retrieves single page of results
 def retrieve_page_zenodo(url, params=None):
     try:
-        response = requests.get(url, params=params)
+        response = requests.get(url, params=params, timeout=30)
         response.raise_for_status()  
         return response.json()
     except requests.RequestException as e:
@@ -341,7 +367,6 @@ def retrieve_all_data_zenodo(url, params):
     current_url = data.get('links', {}).get('self', None)
     total_count = data.get('hits', {}).get('total',None)
     total_pages = math.ceil(total_count/config['VARIABLES']['PAGE_SIZES']['zenodo'])
-
     print(f"Total: {total_count} entries over {total_pages} pages\n")
     
     while current_url and page_start_zenodo < page_limit_zenodo:
@@ -349,13 +374,11 @@ def retrieve_all_data_zenodo(url, params):
         page_number = extract_page_number(current_url)
         print(f"Retrieving page {page_start_zenodo} of {total_pages} from Zenodo...\n")
         data = retrieve_page_zenodo(current_url)
-        
         if not data['hits']['hits']:
             print("End of Zenodo response.\n")
             break
         
         all_data_zenodo.extend(data['hits']['hits'])
-        
         current_url = data.get('links', {}).get('next', None)
     
     return all_data_zenodo
@@ -367,7 +390,7 @@ def retrieve_page_openalex(url, params=None):
         response.raise_for_status()  
         return response.json()
     except requests.RequestException as e:
-        print(f"Error retrieveing page: {e}")
+        print(f"Error retrieving page: {e}")
         return {'results': [], 'meta':{}}
 ##recursively retrieves pages
 def retrieve_all_data_openalex(url, params):
@@ -529,7 +552,7 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
             data_dataverse = retrieve_all_data_dataverse(url_dataverse, params_dataverse, headers_dataverse)
             print(f'Number of Dataverse datasets found by Dataverse API: {len(data_dataverse)}\n')
         print('Starting Zenodo retrieval.\n')
-        data_zenodo = retrieve_all_data_zenodo(url_zenodo, params_zenodo_data)
+        data_zenodo = retrieve_all_data_zenodo(url_zenodo, params_zenodo)
         print(f'Number of Zenodo datasets found by Zenodo API: {len(data_zenodo)}\n')
 
     print('Beginning dataframe generation.\n')
@@ -540,26 +563,60 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
         doi = attributes.get('doi', None)
         state = attributes.get('state', None)
         publisher = attributes.get('publisher', '')
-        # publisher_year = attributes.get('publicationYear', '') #temporarily disabling due to Dryad metadata issue
         registered = attributes.get('registered', '')
         if registered:
-            publisher_year = datetime.fromisoformat(registered[:-1]).year
-            publisher_date = datetime.fromisoformat(registered[:-1]).date()
+            publisher_year = datetime.fromisoformat(registered.rstrip('Z')).year
+            publisher_date = datetime.fromisoformat(registered.rstrip('Z')).date()
         else:
             publisher_year = None
             publisher_date = None
-        title=attributes.get('titles', [{}])[0].get('title','')
+        title = attributes.get('titles', [{}])[0].get('title', '')
         creators = attributes.get('creators', [{}])
         creatorsNames = [creator.get('name', '') for creator in creators]
-        creatorsAffiliations = ['; '.join([aff['name'] for aff in creator.get('affiliation', [])]) for creator in creators]        
-        first_creator = creators[0].get('name', None)
-        last_creator = creators[-1].get('name', None)
-        affiliations = [affiliation.get('name' '') for creator in creators for affiliation in creator.get('affiliation', [{}])]
-        first_affiliation = affiliations[0] if affiliations else None
-        last_affiliation = affiliations[-1] if affiliations else None
+        creatorsAffiliations = [
+            '; '.join(aff.get('name', '') for aff in creator.get('affiliation', []))
+            for creator in creators
+        ]
+        creators_formatted = []
+        for creator in creators:
+            name = creator.get('name', '').strip()
+            affiliations = creator.get('affiliation', [])
+            updated_affiliations = []
+            for affil in affiliations:
+                affil_name = affil.get('name', '') if isinstance(affil, dict) else affil
+                if 'Austin' in affil_name:
+                    affil_name = "University of Texas at Austin"
+                updated_affiliations.append(affil_name)
+            affil_str = ', '.join(updated_affiliations) if updated_affiliations else "No affiliation listed"
+            creators_formatted.append(f"{name} ({affil_str})")
+        first_creator = creators[0].get('name', None) if creators else None
+        last_creator = creators[-1].get('name', None) if creators else None
+        affiliations = [
+            aff.get('name', '')
+            for creator in creators
+            for aff in (creator.get('affiliation') if isinstance(creator.get('affiliation'), list) else [])
+            if isinstance(aff, dict)
+        ]
+        first_affiliation = creatorsAffiliations[0] if creatorsAffiliations else None
+        last_affiliation = creatorsAffiliations[-1] if creatorsAffiliations else None
         contributors = attributes.get('contributors', [{}])
         contributorsNames = [contributor.get('name', '') for contributor in contributors]
-        contributorsAffiliations = ['; '.join([aff['name'] for aff in contributor.get('affiliation', [])]) for contributor in contributors]        
+        contributorsAffiliations = [
+            '; '.join(aff.get('name', '') for aff in contributor.get('affiliation', []))
+            for contributor in contributors
+        ]
+        contributors_formatted = []
+        for contributor in contributors:
+            name = contributor.get('name', '').strip()
+            affiliations = contributor.get('affiliation', [])
+            updated_affiliations = []
+            for affil in affiliations:
+                affil_name = affil.get('name', '') if isinstance(affil, dict) else affil
+                if 'Austin' in affil_name:
+                    affil_name = "University of Texas at Austin"
+                updated_affiliations.append(affil_name)
+            affil_str = ', '.join(updated_affiliations) if updated_affiliations else "No affiliation listed"
+            contributors_formatted.append(f"{name} ({affil_str})")
         container = attributes.get('container', {})
         container_identifier = container.get('identifier', None)
         related_identifiers = attributes.get('relatedIdentifiers', [])
@@ -568,11 +625,18 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
             relatedIdentifier = identifier.get('relatedIdentifier', '')
         types = attributes.get('types', {})
         resourceType = types.get('resourceTypeGeneral', '')
+        subjects = attributes.get('subjects', [])
+        if subjects:
+            subject_list = [subj.get('subject', '').strip() for subj in subjects if subj.get('subject')]
+            subjects_combined = '; '.join(subject_list) if subject_list else "No keywords provided"
+        else:
+            subjects_combined = "No keywords provided"
         sizes = attributes.get('sizes', [])
         cleaned_sizes = [int(re.sub(r'\D', '', size)) for size in sizes if re.sub(r'\D', '', size).isdigit()]
         total_size = sum(cleaned_sizes) if cleaned_sizes else 'No file size information'   
         formats_list = attributes.get('formats', [])
-        formats = set(formats_list) if formats_list else 'No file information'    
+        formats = set(formats_list) if formats_list else 'No file information' 
+        fileCount = len(formats_list) if formats_list else 'No file information'   
         rights_list = attributes.get('rightsList', [])
         rights = [right['rights'] for right in rights_list if 'rights' in right] or ['Rights unspecified']
         rightsCode = [right['rightsIdentifier'] for right in rights_list if 'rightsIdentifier' in right] or ['Unknown']
@@ -592,14 +656,18 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
             'last_affiliation': last_affiliation,
             'creatorsNames': creatorsNames,
             'creatorsAffiliations': creatorsAffiliations,
+            'creatorsFormatted': creators_formatted,
             'contributorsNames': contributorsNames,
             'contributorsAffiliations': contributorsAffiliations,
+            'contributorsFormatted': contributors_formatted,
             'relationType': relationType,
             'relatedIdentifier': relatedIdentifier,
             'containerIdentifier': container_identifier,
             'type': resourceType,
+            'subjects': subjects_combined,
             'depositSize': total_size,
             'formats': formats,
+            'fileCount': fileCount,
             'rights': rights,
             'rightsCode': rightsCode,
             'views': views,
@@ -609,7 +677,7 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
         })
 
     df_datacite_initial = pd.json_normalize(data_select_datacite)
-    df_datacite_initial.to_csv(f'outputs/{todayDate}_datacite-initial-output_{resourceFilename}.csv')
+    df_datacite_initial.to_csv(f'outputs/{todayDate}_{resourceFilename}_datacite-initial-output.csv', index=False, encoding='utf-8')
 
     if crossValidate:
         print('Dryad step\n')
@@ -642,7 +710,7 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
                 'relatedWorks': related_works_list_dr
             })
         df_dryad = pd.json_normalize(data_select_dryad)
-        df_dryad.to_csv(f'outputs/{todayDate}_Dryad-API-output.csv', index=False)
+        df_dryad.to_csv(f'outputs/{todayDate}_Dryad-API-output.csv', index=False, encoding='utf-8')
         if dataverse:
             print('Dataverse step\n')
             data_select_dataverse = [] 
@@ -674,7 +742,7 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
                     'dataverse': dataverse
                 })
             df_dataverse = pd.json_normalize(data_select_dataverse)
-            df_dataverse.to_csv(f'outputs/{todayDate}_TDR-API-output.csv', index=False)
+            df_dataverse.to_csv(f'outputs/{todayDate}_TDR-API-output.csv', index=False, encoding='utf-8')
             
         print('Zenodo step\n')
         data_select_zenodo = [] 
@@ -708,7 +776,7 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
                 'relatedWorks_type': related_works_type_list_zen
             })
         df_data_zenodo = pd.json_normalize(data_select_zenodo)
-        df_data_zenodo.to_csv(f'outputs/{todayDate}_Zenodo-API-output.csv', index=False)
+        df_data_zenodo.to_csv(f'outputs/{todayDate}_Zenodo-API-output.csv', index=False, encoding='utf-8')
     print('Beginning dataframe editing.\n')
 
     #split out DataCite results for repos to be cross-validated against
@@ -824,7 +892,7 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
         counts_dryad_datacite = df_dryad_datacite_joint['Match_entry'].value_counts()
         print(counts_dryad_datacite, '\n')
         df_dryad_datacite_joint_unmatched = df_dryad_datacite_joint[df_dryad_datacite_joint['Match_entry'] == 'Not matched']
-        df_dryad_datacite_joint_unmatched.to_csv(f'outputs/{todayDate}_DataCite-into-Dryad_joint-unmatched-dataframe.csv', index=False)
+        df_dryad_datacite_joint_unmatched.to_csv(f'outputs/{todayDate}_DataCite-into-Dryad_joint-unmatched-dataframe.csv', index=False, encoding='utf-8')
         df_dryad_undetected = df_dryad_datacite_joint_unmatched[['doi']]
 
         #Dryad into DataCite
@@ -834,7 +902,7 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
         counts_datacite_dryad = df_datacite_dryad_joint['Match_entry'].value_counts()
         print(counts_datacite_dryad, '\n')
         df_datacite_dryad_joint_unmatched = df_datacite_dryad_joint[df_datacite_dryad_joint['Match_entry'] == 'Not matched']
-        df_datacite_dryad_joint_unmatched.to_csv(f'outputs/{todayDate}_Dryad-into-DataCite_joint-unmatched-dataframe.csv', index=False)
+        df_datacite_dryad_joint_unmatched.to_csv(f'outputs/{todayDate}_Dryad-into-DataCite_joint-unmatched-dataframe.csv', index=False, encoding='utf-8')
 
         if dataverse:
         #DataCite into Dataverse (using non-de-duplicated DataCite data)
@@ -844,7 +912,7 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
             counts_dataverse_datacite = df_dataverse_datacite_joint['Match_entry'].value_counts()
             print(counts_dataverse_datacite, '\n')
             df_dataverse_datacite_joint_unmatched = df_dataverse_datacite_joint[df_dataverse_datacite_joint['Match_entry'] == 'Not matched']
-            df_dataverse_datacite_joint_unmatched.to_csv(f'outputs/{todayDate}_DataCite-into-Dataverse_joint-unmatched-dataframe.csv', index=False)
+            df_dataverse_datacite_joint_unmatched.to_csv(f'outputs/{todayDate}_DataCite-into-Dataverse_joint-unmatched-dataframe.csv', index=False, encoding='utf-8')
             df_dataverse_undetected = df_dataverse_datacite_joint_unmatched[['doi']]
 
             #Dataverse into DataCite (using de-duplicated DataCite data)
@@ -854,10 +922,9 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
             counts_datacite_dataverse = df_datacite_dataverse_joint['Match_entry'].value_counts()
             print(counts_datacite_dataverse, '\n')
             df_datacite_dataverse_joint_unmatched = df_datacite_dataverse_joint[df_datacite_dataverse_joint['Match_entry'] == 'Not matched']
-            df_datacite_dataverse_joint_unmatched.to_csv(f'outputs/{todayDate}_Dataverse-into-DataCite_joint-unmatched-dataframe.csv', index=False)
+            df_datacite_dataverse_joint_unmatched.to_csv(f'outputs/{todayDate}_Dataverse-into-DataCite_joint-unmatched-dataframe.csv', index=False, encoding='utf-8')
 
         #DataCite into Zenodo
-        # df_zenodo_datacite_joint = pd.merge(df_zenodo_pruned, df_datacite_zenodo_pruned, on='doi', how='left')
         df_zenodo_datacite_joint = pd.merge(df_zenodo_pruned, df_datacite_zenodo_pruned, on='doi', how='left')
         df_zenodo_datacite_joint['Match_entry'] = np.where(df_zenodo_datacite_joint['source_dc'].isnull(), 'Not matched', 'Matched')
         ##removing multiple DOIs in same 'lineage'
@@ -872,7 +939,6 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
         df_zenodo_undetected = df_zenodo_datacite_joint_unmatched[['doi']]
 
         #Zenodo into DataCite
-        # df_datacite_zenodo_joint = pd.merge(df_datacite_zenodo_pruned, df_zenodo_pruned, on='doi', how='left')
         df_datacite_zenodo_joint = pd.merge(df_datacite_zenodo_pruned, df_zenodo_pruned, on='doi', how='left')
         df_datacite_zenodo_joint['Match_entry'] = np.where(df_datacite_zenodo_joint['source_zenodo'].isnull(), 'Not matched', 'Matched')
         ##removing multiple DOIs in same 'lineage'
@@ -927,15 +993,19 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
             title = attributes.get('titles', [{}])[0].get('title', '')
             creators = attributes.get('creators', [{}])
             creatorsNames = [creator.get('name', '') for creator in creators]
-            # creatorsAffiliations = []
-            # for creator in creators:
-            #     affs = creator.get('affiliation', [])
-            #     if isinstance(affs, list):
-            #         names = [aff.get('name', '') for aff in affs if isinstance(aff, dict)]
-            #         creatorsAffiliations.append('; '.join(names))
-            #     else:
-            #         creatorsAffiliations.append(str(affs))
             creatorsAffiliations = ['; '.join(creator.get('affiliation', [])) for creator in creators]
+            creators_formatted = []
+            for creator in creators:
+                name = creator.get('name', '').strip()
+                affiliations = creator.get('affiliation', [])
+                updated_affiliations = []
+                for affil in affiliations:
+                    affil_name = affil.get('name', '') if isinstance(affil, dict) else affil
+                    if 'Austin' in affil_name:
+                        affil_name = "University of Texas at Austin"
+                    updated_affiliations.append(affil_name)
+                affil_str = ', '.join(updated_affiliations) if updated_affiliations else "No affiliation listed"
+                creators_formatted.append(f"{name} ({affil_str})")
             first_creator = creators[0].get('name', None) if creators else None
             last_creator = creators[-1].get('name', None) if creators else None
             affiliations = [
@@ -944,19 +1014,28 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
                 for aff in (creator.get('affiliation') if isinstance(creator.get('affiliation'), list) else [])
                 if isinstance(aff, dict)
             ]
-            first_affiliation = affiliations[0] if affiliations else None
-            last_affiliation = affiliations[-1] if affiliations else None
+            first_affiliation = creatorsAffiliations[0] if creatorsAffiliations else None
+            last_affiliation = creatorsAffiliations[-1] if creatorsAffiliations else None
             contributors = attributes.get('contributors', [{}])
             contributorsNames = [contributor.get('name', '') for contributor in contributors]
-            # contributorsAffiliations = []
-            # for contributor in contributors:
-            #     affs = contributor.get('affiliation', [])
-            #     if isinstance(affs, list):
-            #         names = [aff.get('name', '') for aff in affs if isinstance(aff, dict)]
-            #         contributorsAffiliations.append('; '.join(names))
-            #     else:
-            #         contributorsAffiliations.append(str(affs))
-            contributorsAffiliations = ['; '.join(contributor.get('affiliation', [])) for contributor in contributors]
+            contributorsAffiliations = [
+                '; '.join(
+                    aff.get('name', aff) if isinstance(aff, dict) else (aff if aff else '')
+                    for aff in contributor.get('affiliation', [])
+                )
+            ]
+            contributors_formatted = []
+            for contributor in contributors:
+                name = contributor.get('name', '').strip()
+                affiliations = contributor.get('affiliation', [])
+                updated_affiliations = []
+                for affil in affiliations:
+                    affil_name = affil.get('name', '') if isinstance(affil, dict) else affil
+                    if 'Austin' in affil_name:
+                        affil_name = "University of Texas at Austin"
+                    updated_affiliations.append(affil_name)
+                affil_str = ', '.join(updated_affiliations) if updated_affiliations else "No affiliation listed"
+                contributors_formatted.append(f"{name} ({affil_str})")
             container = attributes.get('container', {})
             container_identifier = container.get('identifier', None)
             related_identifiers = attributes.get('relatedIdentifiers', [])
@@ -965,11 +1044,18 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
                 relatedIdentifier = identifier.get('relatedIdentifier', '')
             types = attributes.get('types', {})
             resourceType = types.get('resourceTypeGeneral', '')
+            subjects = attributes.get('subjects', [])
+            if subjects:
+                subject_list = [subj.get('subject', '').strip() for subj in subjects if subj.get('subject')]
+                subjects_combined = '; '.join(subject_list) if subject_list else "No keywords provided"
+            else:
+                subjects_combined = "No keywords provided"
             sizes = attributes.get('sizes', [])
             cleaned_sizes = [int(re.sub(r'\D', '', size)) for size in sizes if re.sub(r'\D', '', size).isdigit()]
             total_size = sum(cleaned_sizes) if cleaned_sizes else 'No file size information'   
             formats_list = attributes.get('formats', [])
-            formats = set(formats_list) if formats_list else 'No file information'    
+            formats = set(formats_list) if formats_list else 'No file information' 
+            fileCount = len(formats_list) if formats_list else 'No file information'   
             rights_list = attributes.get('rightsList', [])
             rights = [right['rights'] for right in rights_list if 'rights' in right] or ['Rights unspecified']
             rightsCode = [right['rightsIdentifier'] for right in rights_list if 'rightsIdentifier' in right] or ['Unknown']
@@ -989,14 +1075,18 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
                 'last_affiliation': last_affiliation,
                 'creatorsNames': creatorsNames,
                 'creatorsAffiliations': creatorsAffiliations,
+                'creatorsFormatted': creators_formatted,
                 'contributorsNames': contributorsNames,
                 'contributorsAffiliations': contributorsAffiliations,
+                'contributorsFormatted': contributors_formatted,
                 'relationType': relationType,
                 'relatedIdentifier': relatedIdentifier,
                 'containerIdentifier': container_identifier,
                 'type': resourceType,
+                'subjects': subjects_combined,
                 'depositSize': total_size,
                 'formats': formats,
+                'fileCount': fileCount,
                 'rights': rights,
                 'rightsCode': rightsCode,
                 'views': views,
@@ -1006,7 +1096,7 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
             })
 
         df_datacite_new = pd.json_normalize(data_select_datacite_new)
-        df_datacite_new.to_csv(f'outputs/{todayDate}_datacite-additional-cross-validation.csv')
+        df_datacite_new.to_csv(f'outputs/{todayDate}_datacite-additional-cross-validation.csv', index=False, encoding='utf-8')
     if crossValidate:
         df_datacite_all = pd.concat([df_datacite_initial, df_datacite_new], ignore_index=True)
     else:
@@ -1025,10 +1115,10 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
     df_datacite_all['affiliation_permutation'] = df_datacite_all.apply(
     lambda row:
         next(
-            # First pass: exact match (case-sensitive)
+            #exact match (case-sensitive)
             (perm for perm in ut_variations
              if any(perm == entry for entry in row['creatorsAffiliations'] + row['creatorsNames'] + row['contributorsAffiliations'] + row['contributorsNames'])),
-            # Second pass: full-phrase match (case-sensitive)
+            #full-phrase match (case-sensitive)
             next(
                 (perm for perm in ut_variations
                  if any(
@@ -1044,9 +1134,9 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
     #handling version duplication (Figshare, ICPSR, etc.)
     ##handling duplication of Figshare deposits (parent vs. child with '.v*')
     ###creating separate figshare dataframe for downstream processing, not necessary for other repositories with this DOI mechanism in current workflow
-    figshare = df_datacite_all[df_datacite_all['doi'].str.contains('figshare')]
-    df_datacite_no_figshare = df_datacite_all[~df_datacite_all['doi'].str.contains('figshare')]
-    figshare_no_versions = figshare[~figshare['doi'].str.contains(r'\.v\d+$')]
+    figshare = df_datacite_all[df_datacite_all['doi'].str.contains('figshare', na=False)]
+    df_datacite_no_figshare = df_datacite_all[~df_datacite_all['doi'].str.contains('figshare', na=False)]
+    figshare_no_versions = figshare[~figshare['doi'].str.contains(r'\.v\d+$', na=False)]
     #mediated workflow sometimes creates individual deposit for each file, want to treat as single dataset here
     for col in figshare_no_versions.columns:
         if figshare_no_versions[col].apply(lambda x: isinstance(x, list)).any():
@@ -1054,7 +1144,6 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
     figshare_no_versions['hadPartialDuplicate'] = figshare_no_versions.duplicated(subset=['publisher', 'publicationDate', 'first_author', 'last_author', 'first_affiliation', 'type', 'relatedIdentifier'], keep=False)
 
     #aggregating related entries together
-    # figshare_no_versions_combined = figshare_no_versions.groupby('relatedIdentifier').agg(lambda x: '; '.join(sorted(map(str, set(x))))).reset_index()
     sum_columns = ['depositSize', 'views', 'citations', 'downloads']
 
     def agg_func(column_name):
@@ -1063,6 +1152,10 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
         else:
             return lambda x: sorted(set(x))
 
+    #handling mixed-type columns that are expected to be only numeric
+    for col in sum_columns:
+        if col in figshare_no_versions.columns:
+            figshare_no_versions[col] = pd.to_numeric(figshare_no_versions[col], errors='coerce')
     agg_funcs = {col: agg_func(col)for col in figshare_no_versions.columns if col != 'relatedIdentifier'}
 
     figshare_no_versions_combined = figshare_no_versions.groupby('relatedIdentifier').agg(agg_funcs).reset_index()
@@ -1074,8 +1167,8 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
     df_datacite_v1 = pd.concat([df_datacite_no_figshare, figshare_deduplicated], ignore_index=True)
 
     ##handling duplication of ICPSR, SAGE, Mendeley Data, Zenodo deposits (parent vs. child)
-    lineageRepos = df_datacite_v1[df_datacite_v1['publisher'].str.contains('ICPSR|Mendeley|SAGE|Zenodo|4TU')]
-    df_datacite_lineageRepos = df_datacite_v1[~df_datacite_v1['publisher'].str.contains('ICPSR|Mendeley|SAGE|Zenodo|4TU')]
+    lineageRepos = df_datacite_v1[(df_datacite_v1['publisher'].str.contains('ICPSR|Mendeley|SAGE|Zenodo|4TU|Materials Cloud'))|(df_datacite_v1['doi'].str.contains('zenodo'))]
+    df_datacite_lineageRepos = df_datacite_v1[~(df_datacite_v1['publisher'].str.contains('ICPSR|Mendeley|SAGE|Zenodo|4TU|Materials Cloud')|df_datacite_v1['doi'].str.contains('zenodo'))]
     lineageRepos_deduplicated = lineageRepos[~lineageRepos['relationType'].str.contains('IsVersionOf|IsNewVersionOf', case=False, na=False)]
     ###the use of .v* and v* as filters works for these repositories but could accidentally remove non-duplicate DOIs if applied to other repositories
     lineageRepos_deduplicated = lineageRepos_deduplicated[~lineageRepos_deduplicated['doi'].str.contains(r'\.v\d+$')]
@@ -1093,10 +1186,9 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
     #handling file-level DOI granularity (all Dataverse installations)
     ##may need to expand search terms if you find a Dataverse installation without 'Dataverse' in name
     df_datacite_dedup = df_datacite_v2[~(df_datacite_v2['publisher'].str.contains('Dataverse|Texas Data Repository', case=False, na=False) & df_datacite_v2['containerIdentifier'].notnull())]
-    df_datacite_dedup = df_datacite_dedup[~(df_datacite_dedup['doi'].str.count('/') >= 3)]
+    df_datacite_dedup = df_datacite_dedup[~((df_datacite_dedup['doi'].str.count('/') >= 3) & (df_datacite_dedup['publisher'] != 'figshare'))]
     #handling same granularity in other repositories
     df_datacite_dedup = df_datacite_dedup[~((df_datacite_dedup['publisher'] == 'AUSSDA') & (df_datacite_dedup['doi'].str.count('/') > 1))]
-
 
     #handling blanket 'affiliation' of UT Austin for all DesignSafe deposits
     ##DesignSafe is a UT-managed repository and this step is unlikely to be signficant for other institutions; there should also be a metadata fix for this forthcoming
@@ -1129,12 +1221,11 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
                 return 'sum'
             else:
                 return lambda x: sorted(set(
-                    item
+                    str(item)
                     for sublist in x
                     for item in (list(sublist) if isinstance(sublist, (list, set)) else [sublist])
                 ))
 
-        #build aggregation dictionary
         agg_funcs = {
             col: agg_func(col)
             for col in dataverse.columns
@@ -1143,7 +1234,7 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
         for col in sum_columns:
             if col in dataverse.columns:
                 dataverse[col] = pd.to_numeric(dataverse[col], errors='coerce')
-        
+
         dataverse_combined = dataverse.groupby(group_variables).agg(agg_funcs).reset_index()
 
         #convert list-type columns to semicolon-separated strings
@@ -1161,50 +1252,16 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
     df_datacite = df_sorted.drop_duplicates(subset=['title', 'first_author', 'relationType', 'relatedIdentifier', 'containerIdentifier'], keep='first')
 
     #the file exported here is intended only to be used to compare affiliation source fields; the fields will be dropped in later steps in the workflow
-    df_datacite.to_csv(f'outputs/{todayDate}_datacite-output-for-affiliation-source_{resourceFilename}.csv', index=False) 
+    df_datacite.to_csv(f'outputs/{todayDate}_{resourceFilename}_datacite-output-for-affiliation-source.csv', index=False, encoding='utf-8') 
 
     #additional metadata assessment steps, fields are also dropped in later steps
-    ##convert mimeType to readable format
-    format_map = config['FORMAT_MAP']
-    df_datacite['fileFormat'] = df_datacite['formats'].apply(
-    lambda formats: (
-        '; '.join([format_map.get(fmt, fmt) for fmt in formats])
-        if isinstance(formats, set) else formats
-        )
-    )    
-    # df_datacite['fileFormatsSet'] = df_datacite['mimeTypeSet'].apply(lambda x: '; '.join([format_map.get(fmt, fmt) for fmt in x]) if x != 'no files' else 'no files')
-    
+    df_datacite['fileFormat'] = df_datacite['formats'].apply(lambda formats: ('; '.join([format_map.get(fmt, fmt) for fmt in formats])if isinstance(formats, set) else formats))        
     ##look for software file formats
-    softwareFormats = set(config['SOFTWARE_FORMATS'].values())
-    # Assume softwareFormats is a set of friendly software format names
-    df_datacite['containsCode'] = df_datacite['fileFormat'].apply(
-        lambda x: any(part.strip() in softwareFormats for part in x.split(';')) if isinstance(x, str) else False
-    )
-    df_datacite['onlyCode'] = df_datacite['fileFormat'].apply(
-    lambda x: all(part.strip() in softwareFormats for part in x.split(';')) if isinstance(x, str) else False
-    )
-
-    ##assess 'descriptiveness of dataset title'
-    words = config['WORDS']
-    ###add integers
-    numbers = list(map(str, range(1, 1000000)))
-    ###combine all into a single set
-    nondescriptive_words = set(
-        words['articles'] +
-        words['conjunctions'] +
-        words['prepositions'] +
-        words['auxiliary_verbs'] +
-        words['possessives'] +
-        words['descriptors'] +
-        words['order'] +
-        words['version'] +
-        numbers
-    )
-
+    df_datacite['containsCode'] = df_datacite['fileFormat'].apply(lambda x: any(part.strip() in softwareFormats for part in x.split(';')) if isinstance(x, str) else False)
+    df_datacite['onlyCode'] = df_datacite['fileFormat'].apply(lambda x: all(part.strip() in softwareFormats for part in x.split(';')) if isinstance(x, str) else False)
     df_datacite['title_reformatted'] = df_datacite['title'].str.replace('_', ' ') #gets around text linked by underscores counting as 1 word
     df_datacite['title_reformatted'] = df_datacite['title_reformatted'].str.lower()
     df_datacite[['total_word_count_title', 'descriptive_word_count_title']] = df_datacite['title_reformatted'].apply(lambda x: pd.Series(count_words(x)))
-
     df_datacite['descriptive_word_count_title'] = df_datacite.apply(adjust_descriptive_count, axis=1)
     df_datacite['nondescriptive_word_count_title'] = df_datacite['total_word_count_title'] - df_datacite['descriptive_word_count_title']
 
@@ -1227,20 +1284,21 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
     df_datacite.loc[df_datacite['rights'].str.contains('UCAR'), 'rights_standardized'] = 'Custom terms'
     df_datacite.loc[df_datacite['rights'] == '', 'rights_standardized'] = 'Rights unclear'
 
-    df_datacite.to_csv(f'outputs/{todayDate}_datacite-output-for-metadata-assessment_{resourceFilename}.csv', index=False) 
+    df_datacite.to_csv(f'outputs/{todayDate}_{resourceFilename}_datacite-output-for-metadata-assessment.csv', index=False, encoding='utf-8') 
 
     #subsetting dataframe
-    df_datacite_pruned = df_datacite[['publisher', 'doi', 'publicationYear', 'title', 'first_author', 'first_affiliation', 'last_author', 'last_affiliation', 'source', 'type']]
+    # df_datacite_pruned = df_datacite[['publisher', 'doi', 'publicationYear', 'title', 'first_author', 'first_affiliation', 'last_author', 'last_affiliation', 'source', 'type']]
+    ##currently not pruning to maximize metadata retention for internal processes
+    df_datacite_pruned = df_datacite
 
     #adding column for select high-volume repos
     repo_mapping = {
-    'Dryad': 'Dryad',
-    'Zenodo': 'Zenodo',
-    'Texas Data Repository': 'Texas Data Repository'
+        'Dryad': 'Dryad',
+        'Zenodo': 'Zenodo',
+        'Texas Data Repository': 'Texas Data Repository'
     }
 
     df_datacite_pruned['repository2'] = df_datacite_pruned['publisher'].map(repo_mapping).fillna('Other')
-
     df_datacite_pruned['uni_lead'] = df_datacite_pruned.apply(determine_affiliation, axis=1)
 
     #standardizing repositories with multiple versions of name in dataframe
@@ -1270,10 +1328,18 @@ if not loadPreviousData and not loadPreviousDataPlus and not loadPreviousDataPlu
     df_datacite_pruned['non_TDR_IR'] = np.where(df_datacite_pruned['publisher'].str.contains('University|UCLA|UNC|Harvard|ASU Library|Dataverse|DaRUS', case=True), 'non-TDR institutional', 'not university or TDR')
     df_datacite_pruned['US_federal'] = np.where(df_datacite_pruned['publisher'].str.contains('NOAA|NIH|NSF|U.S.|DOE|DOD|DOI|National|Designsafe', case=True), 'Federal US repo', 'not federal US repo')
     df_datacite_pruned['GREI'] = np.where(df_datacite_pruned['publisher'].str.contains('Dryad|figshare|Harvard|Zenodo|Vivli|Mendeley|Open Science Framework', case=False), 'GREI member', 'not GREI member')
-    df_datacite_pruned['scope'] = np.where(df_datacite_pruned['publisher'].str.contains('Dryad|figshare|Zenodo|Mendeley|Open Science Framework|4TU|ASU Library|Boise State|Borealis|Dataverse|Oregon|Princeton|University|Wyoming|DaRUS', case=False), 'Generalist', 'Specialist')
-    df_datacite_pruned = df_datacite_pruned.rename(columns={'publisher': 'repository'})
+    df_datacite_pruned['scope'] = np.where(df_datacite_pruned['publisher'].str.contains('Dryad|figshare|Zenodo|Mendeley|Open Science Framework|4TU|ASU Library|Boise State|Borealis|Dataverse|Oregon|Princeton|University|Wyoming|DaRUS|Texas', case=False), 'Generalist', 'Specialist')
 
-    df_datacite_pruned.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe_{resourceFilename}.csv', index=False)
+    df_datacite_pruned = df_datacite_pruned.rename(columns={'publisher': 'repository'})
+    conditions = [
+        df_datacite_pruned['type'].isin(['Dataset', 'Image', 'PhysicalObject']),
+        df_datacite_pruned['type'].isin(['Software', 'ComputationalNotebook']), 
+        df_datacite_pruned['type'] == 'Collection'
+    ]
+    types = ['Dataset', 'Software', 'Collection']
+    df_datacite_pruned['type_reclassified'] = np.select(conditions, types, default='Other')
+
+    df_datacite_pruned.to_csv(f'outputs/{todayDate}_{resourceFilename}_full-concatenated-dataframe.csv', index=False, encoding='utf-8')
 
 ###### FIGSHARE WORKFLOW ######
 #These sections are for cleaning up identified figshare deposits or identifying associated ones that lack affiliation metadata
@@ -1316,7 +1382,7 @@ if figshareWorkflow1:
             #update both params for each publisher in map
             params_openalex = {
             'filter': f'authorships.institutions.ror:https://ror.org/00hj54h04,type:article,from_publication_date:2000-01-01,locations.source.host_organization:{openalex_code}',
-            'per-page': config['VARIABLES']['PAGE_SIZES']['openalex'],
+            'per_page': config['VARIABLES']['PAGE_SIZES']['openalex'],
             'select': 'id,doi,title,authorships,primary_location,type',
             'mailto': config['EMAIL']['user_email']
             }
@@ -1346,42 +1412,152 @@ if figshareWorkflow1:
 
             print(f'Starting DataCite retrieval for {publisher_name}.\n')
             data_datacite_figshare = retrieve_all_data_datacite(url_datacite, params_datacite_figshare)
-            print(f'Number of datasets found by DataCite API: {len(data_datacite_figshare)}\n')
+            print(f'Number of datasets associated with {publisher_name} found by DataCite API: {len(data_datacite_figshare)}\n')
+            
             for item in data_datacite_figshare:
+                if not isinstance(item, dict):
+                    print(f"ERROR: item is not a dict! Type: {type(item)}, Value: {item}")
+                    continue
                 attributes = item.get('attributes', {})
                 doi_dc = attributes.get('doi', None)
+                state = attributes.get('state', None)
                 publisher_dc = attributes.get('publisher', '')
-                # publisher_year_dc = attributes.get('publicationYear', '')
+                publisher_year_dc = attributes.get('publicationYear', '')
                 registered = attributes.get('registered', '')
                 if registered:
-                    publisher_year_dc = datetime.fromisoformat(registered[:-1]).year
+                    publisher_year_dc = datetime.fromisoformat(registered.rstrip('Z')).year
+                    publisher_date_dc = datetime.fromisoformat(registered.rstrip('Z')).date()
                 else:
                     publisher_year_dc = None
+                    publisher_date_dc = None
                 title_dc = attributes.get('titles', [{}])[0].get('title', '')
                 creators_dc = attributes.get('creators', [{}])
-                affiliations_dc = [affiliation.get('name', '') for creator in creators_dc for affiliation in creator.get('affiliation', [{}])]
+                if not isinstance(creators_dc, list):
+                    print(f"ERROR: creators_dc is not a list! Type: {type(creators_dc)}, Value: {creators_dc}")
+                    creators_dc = [{}]
+                creatorsNames = []
+                creatorsAffiliations = []
+                for creator in creators_dc:
+                    if not isinstance(creator, dict):
+                        print(f"ERROR: creator is not a dict! Type: {type(creator)}, Value: {creator}")
+                        continue
+                    creatorsNames.append(creator.get('name', ''))
+                    affiliations = creator.get('affiliation', [])
+                    aff_names = []
+                    if not isinstance(affiliations, list):
+                        print(f"ERROR: affiliations is not a list! Type: {type(affiliations)}, Value: {affiliations}")
+                        continue
+                    for aff in affiliations:
+                        if isinstance(aff, dict):
+                            aff_names.append(aff.get('name', ''))
+                        elif isinstance(aff, str):
+                            aff_names.append(aff)
+                        else:
+                            print(f"ERROR: affiliation is not dict or str! Type: {type(aff)}, Value: {aff}")
+                    creatorsAffiliations.append('; '.join(aff_names) if aff_names else '')
+                creators_formatted = []
+                for creator in creators:
+                    name = creator.get('name', '').strip()
+                    affiliations = creator.get('affiliation', [])
+                    updated_affiliations = []
+                    for affil in affiliations:
+                        affil_name = affil.get('name', '') if isinstance(affil, dict) else affil
+                        if 'Austin' in affil_name:
+                            affil_name = "University of Texas at Austin"
+                        updated_affiliations.append(affil_name)
+                    affil_str = ', '.join(updated_affiliations) if updated_affiliations else "No affiliation listed"
+                    creators_formatted.append(f"{name} ({affil_str})")
+                contributors_dc = attributes.get('contributors', [{}])
+                if not isinstance(contributors_dc, list):
+                    print(f"ERROR: contributors_dc is not a list! Type: {type(contributors_dc)}, Value: {contributors_dc}")
+                    contributors_dc = [{}]
+                contributorsNames = []
+                contributorsAffiliations = []
+                for contributor in contributors_dc:
+                    if not isinstance(contributor, dict):
+                        print(f"ERROR: creator is not a dict! Type: {type(contributor)}, Value: {contributor}")
+                        continue
+                    contributorsNames.append(contributor.get('name', ''))
+                    affiliations = contributor.get('affiliation', [])
+                    aff_names = []
+                    if not isinstance(affiliations, list):
+                        print(f"ERROR: affiliations is not a list! Type: {type(affiliations)}, Value: {affiliations}")
+                        continue
+                    for aff in affiliations:
+                        if isinstance(aff, dict):
+                            aff_names.append(aff.get('name', ''))
+                        elif isinstance(aff, str):
+                            aff_names.append(aff)
+                        else:
+                            print(f"ERROR: affiliation is not dict or str! Type: {type(aff)}, Value: {aff}")
+                    contributorsAffiliations.append('; '.join(aff_names) if aff_names else '')
+                for contributor in contributors:
+                    name = contributor.get('name', '').strip()
+                    affiliations = contributor.get('affiliation', [])
+                    updated_affiliations = []
+                    for affil in affiliations:
+                        affil_name = affil.get('name', '') if isinstance(affil, dict) else affil
+                        if 'Austin' in affil_name:
+                            affil_name = "University of Texas at Austin"
+                        updated_affiliations.append(affil_name)
+                    affil_str = ', '.join(updated_affiliations) if updated_affiliations else "No affiliation listed"
+                    contributors_formatted.append(f"{name} ({affil_str})")
                 related_identifiers = attributes.get('relatedIdentifiers', [])
                 container_dc = attributes.get('container', {})
                 container_identifier_dc = container_dc.get('identifier', None)
                 types = attributes.get('types', {})
                 resourceType = types.get('resourceTypeGeneral', '')
+                subjects = attributes.get('subjects', [])
+                if subjects:
+                    subject_list = [subj.get('subject', '').strip() for subj in subjects if subj.get('subject')]
+                    subjects_combined = '; '.join(subject_list) if subject_list else "No keywords provided"
+                else:
+                    subjects_combined = "No keywords provided"
+                sizes = attributes.get('sizes', [])
+                cleaned_sizes = [int(re.sub(r'\D', '', size)) for size in sizes if re.sub(r'\D', '', size).isdigit()]
+                total_size = sum(cleaned_sizes) if cleaned_sizes else 'No file size information'   
+                formats_list = attributes.get('formats', [])
+                formats = set(formats_list) if formats_list else 'No file information' 
+                fileCount = len(formats_list) if formats_list else 'No file information'   
+                rights_list = attributes.get('rightsList', [])
+                rights = [right['rights'] for right in rights_list if 'rights' in right] or ['Rights unspecified']
+                rightsCode = [right['rightsIdentifier'] for right in rights_list if 'rightsIdentifier' in right] or ['Unknown']
+                views = attributes.get('viewCount', 0)
+                downloads = attributes.get('downloadCount', 0)
+                citations = attributes.get('citationCount', 0)
 
                 for rel in related_identifiers: #'explodes' deposits with multiple relatedIdentifiers
                     data_select_datacite.append({
                         'doi': doi_dc,
+                        'state': state,
                         'repository': publisher_dc,
                         'publicationYear': publisher_year_dc,
+                        'publicationDate': publisher_date_dc,
                         'title': title_dc,
-                        'creators': creators_dc,
-                        'affiliations': affiliations_dc,
+                        'creatorsNames': creatorsNames,
+                        'creatorsAffiliations': creatorsAffiliations,
+                        'creatorsFormatted': creators_formatted,
                         'relationType': rel.get('relationType'),
                         'relatedIdentifier': rel.get('relatedIdentifier'),
                         'relatedIdentifierType': rel.get('relatedIdentifierType'),
                         'containerIdentifier': container_identifier_dc,
-                        'type': resourceType
+                        'type': resourceType,
+                        'subjects': subjects_combined,
+                        'depositSize': total_size,
+                        'formats': formats,
+                        'fileCount': fileCount,
+                        'rights': rights,
+                        'rightsCode': rightsCode,
+                        'views': views,
+                        'downloads': downloads,
+                        'citations': citations
                     })
             print(f'Starting OpenAlex retrieval for {publisher_name}.\n')
             openalex = retrieve_all_data_openalex(url_openalex, params_openalex)
+            if openalex:
+                print(f'Number of articles associated with {publisher_name} found by OpenAlex API: {len(openalex)}\n')
+            else:
+                print("WARNING: DATA NOT RETRIEVED")
             for item in openalex:
                 doi = item.get('doi')
                 title = item.get('title')
@@ -1407,11 +1583,11 @@ if figshareWorkflow1:
                             'last_affiliation': last_affiliation
                         })
         except Exception as e:
-            print(f'An error occurred for publisher {publisher_name}: {e}')
+            print(f'An error occurred with the retrieval for {publisher_name}: {e}')
             continue 
 
     df_datacite_initial = pd.json_normalize(data_select_datacite)
-    df_datacite_initial.to_csv(f'outputs/{todayDate}_figshare-discovery-initial_{figshareResourceFilename}.csv', index=False)
+    df_datacite_initial.to_csv(f'outputs/{todayDate}_{figshareResourceFilename}_figshare-discovery-initial.csv', index=False, encoding='utf-8')
 
     if countVersions:
         ##These steps will count different versions as distinct datasets and remove the 'parent' (redundant with most recent version)
@@ -1431,32 +1607,58 @@ if figshareWorkflow1:
     
     df_openalex = pd.json_normalize(data_select_openalex)
     df_openalex['relatedIdentifier'] = df_openalex['doi_article'].str.replace('https://doi.org/', '')
+    df_openalex.to_csv(f'outputs/{todayDate}_openalex-articles.csv', index=False, encoding='utf-8')
 
     #output all UT linked deposits, no deduplication (for Figshare validator workflow)
     df_openalex_datacite = pd.merge(df_openalex, df_datacite_supplement, on='relatedIdentifier', how='left')
     df_openalex_datacite = df_openalex_datacite[df_openalex_datacite['doi'].notnull()]
-    df_openalex_datacite.to_csv(f'outputs/{todayDate}_figshare-discovery-all_{figshareResourceFilename}.csv', index=False)
+    df_openalex_datacite.to_csv(f'outputs/{todayDate}_{figshareResourceFilename}_figshare-discovery-affiliated.csv', index=False, encoding='utf-8')
     df_openalex_datacite = df_openalex_datacite.drop_duplicates(subset='relatedIdentifier', keep='first')
 
     #working with deduplicated dataset for rest of process
     df_openalex_datacite_dedup = pd.merge(df_openalex, df_datacite_supplement_dedup, on='relatedIdentifier', how='left')
     new_figshare = df_openalex_datacite_dedup[df_openalex_datacite_dedup['doi'].notnull()]
     new_figshare = new_figshare.drop_duplicates(subset='doi', keep='first')
-    new_figshare.to_csv(f'outputs/{todayDate}_figshare-discovery-deduplicated_{figshareResourceFilename}.csv', index=False)
-    new_figshare = new_figshare[['doi','publicationYear','title', 'first_author', 'first_affiliation', 'last_author', 'last_affiliation', 'type']]
+    new_figshare.to_csv(f'outputs/{todayDate}_{figshareResourceFilename}_figshare-discovery-affiliated-deduplicated.csv', index=False, encoding='utf-8')
+
+    ##currently not pruning to maximize metadata retention for internal processes
+    # new_figshare = new_figshare[['doi','publicationYear','title', 'first_author', 'first_affiliation', 'last_author', 'last_affiliation', 'type']]
+
+    new_figshare['title_reformatted'] = new_figshare['title'].str.replace('_', ' ') #gets around text linked by underscores counting as 1 word
+    new_figshare['title_reformatted'] = new_figshare['title_reformatted'].str.lower()
+    new_figshare[['total_word_count_title', 'descriptive_word_count_title']] = new_figshare['title_reformatted'].apply(lambda x: pd.Series(count_words(x)))
+    new_figshare['descriptive_word_count_title'] = new_figshare.apply(adjust_descriptive_count, axis=1)
+    new_figshare['nondescriptive_word_count_title'] = new_figshare['total_word_count_title'] - new_figshare['descriptive_word_count_title']
 
     #standardizing licenses
-    # new_figshare['rights'] = new_figshare['rights'].apply(lambda x: ' '.join(x) if isinstance(x, list) else x).astype(str).str.strip('[]')
-    # new_figshare['rights_standardized'] = 'Rights unclear'  #default value
-    # new_figshare.loc[new_figshare['rights'].str.contains('Creative Commons Zero|CC0'), 'rights_standardized'] = 'CC0'
-    # new_figshare.loc[new_figshare['rights'].str.contains('Creative Commons Attribution Non Commercial Share Alike'), 'rights_standardized'] = 'CC BY-NC-SA'
-    # new_figshare.loc[new_figshare['rights'].str.contains('Creative Commons Attribution Non Commercial'), 'rights_standardized'] = 'CC BY-NC'
-    # new_figshare.loc[new_figshare['rights'].str.contains('Creative Commons Attribution 3.0|Creative Commons Attribution 4.0|Creative Commons Attribution-NonCommercial'), 'rights_standardized'] = 'CC BY'
-    # new_figshare.loc[new_figshare['rights'] == '', 'rights_standardized'] = 'Rights unclear'
+    new_figshare['rights'] = new_figshare['rights'].apply(lambda x: ' '.join(x) if isinstance(x, list) else x).astype(str).str.strip('[]')
+    new_figshare['rights_standardized'] = 'Rights unclear'  #default value
+    new_figshare.loc[new_figshare['rights'].str.contains('Creative Commons Zero|CC0'), 'rights_standardized'] = 'CC0'
+    new_figshare.loc[new_figshare['rights'].str.contains('Creative Commons Attribution Non Commercial Share Alike'), 'rights_standardized'] = 'CC BY-NC-SA'
+    new_figshare.loc[new_figshare['rights'].str.contains('Creative Commons Attribution Non Commercial'), 'rights_standardized'] = 'CC BY-NC'
+    new_figshare.loc[new_figshare['rights'].str.contains('Creative Commons Attribution 3.0|Creative Commons Attribution 4.0|Creative Commons Attribution-NonCommercial'), 'rights_standardized'] = 'CC BY'
+    new_figshare.loc[new_figshare['rights'].str.contains('GNU General Public License'), 'rights_standardized'] = 'GNU GPL'
+    new_figshare.loc[new_figshare['rights'].str.contains('Apache License'), 'rights_standardized'] = 'Apache'
+    new_figshare.loc[new_figshare['rights'].str.contains('MIT License'), 'rights_standardized'] = 'MIT'
+    new_figshare.loc[new_figshare['rights'].str.contains('BSD'), 'rights_standardized'] = 'BSD'
+    new_figshare.loc[new_figshare['rights'].str.contains('ODC-BY'), 'rights_standardized'] = 'ODC-BY'
+    new_figshare.loc[new_figshare['rights'].str.contains('Open Access'), 'rights_standardized'] = 'Rights unclear'
+    new_figshare.loc[new_figshare['rights'].str.contains('Closed Access'), 'rights_standardized'] = 'Restricted access'
+    new_figshare.loc[new_figshare['rights'].str.contains('Restricted Access'), 'rights_standardized'] = 'Restricted access'
+    new_figshare.loc[new_figshare['rights'].str.contains('Databrary'), 'rights_standardized'] = 'Custom terms'
+    new_figshare.loc[new_figshare['rights'].str.contains('UCAR'), 'rights_standardized'] = 'Custom terms'
+    new_figshare.loc[new_figshare['rights'] == '', 'rights_standardized'] = 'Rights unclear'
+
+    #file formats (not presently returned for mediated deposits)
+    new_figshare['fileFormat'] = new_figshare['formats'].apply(
+    lambda formats: ('; '.join([format_map.get(fmt, fmt) for fmt in formats])if isinstance(formats, set) else formats))   
+    # Assume softwareFormats is a set of friendly software format names
+    new_figshare['containsCode'] = new_figshare['fileFormat'].apply(lambda x: any(part.strip() in softwareFormats for part in x.split(';')) if isinstance(x, str) else False)
+    new_figshare['onlyCode'] = new_figshare['fileFormat'].apply(lambda x: all(part.strip() in softwareFormats for part in x.split(';')) if isinstance(x, str) else False)
 
     #adding in columns to reconcatenate with full dataset
-    new_figshare['first_affiliation'] = new_figshare['first_affiliation'].apply(lambda x: ' '.join(x) if isinstance(x, list) else x)  
-    new_figshare['last_affiliation'] = new_figshare['last_affiliation'].apply(lambda x: ' '.join(x) if isinstance(x, list) else x)    
+    new_figshare['first_affiliation'] = new_figshare['first_affiliation'].apply(lambda x: ' '.join([str(item) for item in x if item is not None]) if isinstance(x, list) else x)
+    new_figshare['last_affiliation'] = new_figshare['last_affiliation'].apply(lambda x: ' '.join([str(item) for item in x if item is not None]) if isinstance(x, list) else x)    
     new_figshare['uni_lead'] = new_figshare.apply(determine_affiliation, axis=1)
     new_figshare['repository'] = 'figshare'
     new_figshare['source'] = 'DataCite+' #slight differentiation from records only retrieved from DataCite
@@ -1465,11 +1667,20 @@ if figshareWorkflow1:
     new_figshare['US_federal'] = 'not federal US repo'
     new_figshare['GREI'] = 'GREI member'
     new_figshare['scope'] = 'Generalist'
+    conditions = [
+        new_figshare['type'].isin(['Dataset', 'Image', 'PhysicalObject']),
+        new_figshare['type'].isin(['Software', 'ComputationalNotebook']), 
+        new_figshare['type'] == 'Collection'
+    ]
+    types = ['Dataset', 'Software', 'Collection']
+    new_figshare['type_reclassified'] = np.select(conditions, types, default='Other')
+    new_figshare['affiliation_permutation'] = 'Not applicable' #filler to match original DataCite since affiliation only in linked article and not detected through DataCite
+    new_figshare['affiliation_source'] = 'Not applicable' #filler to match original DataCite since affiliation only in linked article and not detected through DataCite
 
     df_datacite_plus = pd.concat([df_datacite_pruned, new_figshare], ignore_index=True)
     #de-duplicating in case some DOIs were caught twice (for the few publishers that do cross-walk affiliation metadata), you could use a sorting method to determine which one to 'keep'; the default will retain the ones returned from the main workflow
     df_datacite_plus_dedup = df_datacite_plus.drop_duplicates(subset='doi', keep='first')
-    df_datacite_plus_dedup.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-figshare_{resourceFilename}.csv', index=False)
+    df_datacite_plus_dedup.to_csv(f'outputs/{todayDate}_{resourceFilename}_full-concatenated-dataframe-plus-figshare.csv', index=False, encoding='utf-8')
 
 ### This codeblock identifies publishers known to create figshare deposits (can be any object resource type) with a '.s00*' system, finds affiliated articles, constructs a hypothetical figshare DOI for them, and tests its existence ###
 # !! Warning: Depending on the number of articles, this can be an extremely time-intensive process !! #
@@ -1512,7 +1723,7 @@ if figshareWorkflow2:
         
         #Check if each DOI with suffix redirects to a real page and create a new column
         df_openalex['Valid'] = df_openalex['hypothetical_dataset'].apply(check_link)
-        df_openalex.to_csv(f'outputs/{todayDate}_openalex-articles-with-hypothetical-deposits.csv', index=False)
+        df_openalex.to_csv(f'outputs/{todayDate}_openalex-articles-with-hypothetical-deposits.csv', index=False, encoding='utf-8')
         print(f'Number of valid datasets: {len(df_openalex)}.')
     else:
         crossref_data = retrieve_all_journals(url_crossref_issn, journal_list)
@@ -1543,7 +1754,7 @@ if figshareWorkflow2:
 
         # Check if each DOI with suffix redirects to a real page and create a new column
         df_crossref['Valid'] = df_crossref['hypothetical_dataset'].apply(check_link)
-        df_crossref.to_csv(f'outputs/{todayDate}_crossref-articles-with-hypothetical-deposits.csv', index=False)
+        df_crossref.to_csv(f'outputs/{todayDate}_crossref-articles-with-hypothetical-deposits.csv', index=False, encoding='utf-8')
         print(f'Number of valid datasets: {len(df_crossref)}.')
 
 ##### NCBI Bioproject #####
@@ -1607,15 +1818,15 @@ if ncbiWorkflow:
             driver.get(ncbi_url)
 
             try:
-                #Load page and find the 'Send to' dropdown
+                #load page and find the 'Send to' dropdown
                 send_to_link = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, 'sendto')))
                 send_to_link.click()
 
-                #Load dropdown and select 'File' radio button
+                #load dropdown and select 'File' radio button
                 file_option = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, 'dest_File')))
                 file_option.click()
 
-                #Load 'Format' dropdown and select 'XML'
+                #load 'Format' dropdown and select 'XML'
                 format_dropdown = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, 'file_format')))
                 format_dropdown.click()
                 xml_option = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.XPATH, "//option[@value='xml']")))
@@ -1710,7 +1921,7 @@ if ncbiWorkflow:
         if submission is not None:
             data_select['LastUpdate'] = submission.get('last_update')
             data_select['SubmissionID'] = submission.get('submission_id')
-            data_select['Submitted'] = submission.get('submitted')
+            data_select['publicationDate'] = submission.get('submitted')
             organization = submission.find('.//Organization/Name')
             if organization is not None:
                 data_select['Affiliation'] = organization.text
@@ -1724,27 +1935,64 @@ if ncbiWorkflow:
 
     #dataframe conversion and standardization for alignment with main dataframe
     ncbi = pd.DataFrame(data_list)
-    ncbi['publicationYear'] = pd.to_datetime(ncbi['Submitted']).dt.year
+    ncbi['publicationYear'] = pd.to_datetime(ncbi['publicationDate']).dt.year
     ##look for one of the permutation strings listed in config.json
     ncbi['first_affiliation'] = ncbi.apply(lambda row: next((perm for perm in ut_variations if perm in row['Affiliation']), None), axis=1)
-    ncbi['last_affiliation'] = ncbi.apply(lambda row: next((perm for perm in ut_variations if perm in row['Affiliation']), None), axis=1)
 
     ##removing hits that have one of the keywords in a different field like the title
     ncbi_df_select = ncbi[ncbi['Affiliation'].str.contains(uni_identifier)]
-    ncbi_df_select = ncbi_df_select[['repository','doi', 'publicationYear', 'title','first_affiliation']]   
+    ncbi_df_select = ncbi_df_select[['publicationDate', 'repository','doi', 'publicationYear', 'title','first_affiliation']]   
     ##adding columns for alignment with main dataframe
-    ncbi_df_select['first_author'] = 'Not specified'
-    ncbi_df_select['last_author'] = 'Not specified'
-    ncbi_df_select['uni_lead'] = 'Affiliated (authorship unclear)'
-    ncbi_df_select['source'] = 'NCBI'
+    ncbi_df_select['first_author'] = 'Not specified' #filler to match DataCite processing, no equivalent field
+    ncbi_df_select['first_affiliation'] = 'Not specified' #filler to match DataCite processing, no equivalent field
+    ncbi_df_select['last_author'] = 'Not specified' #filler to match DataCite processing, no equivalent field
+    ncbi_df_select['last_affiliation'] = 'Not specified' #filler to match DataCite processing, no equivalent field
+    ncbi_df_select['creatorsNames'] = 'Not specified' #filler to match DataCite, no equivalent field
+    ncbi_df_select['creatorsAffiliations'] = 'Not specified' #filler to match DataCite, no equivalent field
+    ncbi_df_select['creatorsFormatted'] = 'Not specified' #filler to match DataCite processing, no equivalent field
+    ncbi_df_select['contributorsNames'] = 'No equivalent field' #filler to match DataCite, no equivalent field
+    ncbi_df_select['contributorsAffiliations'] = 'No equivalent field' #filler to match DataCite, no equivalent field
+    ncbi_df_select['contributorsFormatted'] = 'Not applicable' #filler to match DataCite processing, no equivalent field
+    ncbi_df_select['relationType'] = 'No equivalent field' #filler to match DataCite, no equivalent field
+    ncbi_df_select['relatedIdentifier'] = 'No equivalent field' #filler to match DataCite, no equivalent field
+    ncbi_df_select['containerIdentifier'] = 'No equivalent field' #filler to match DataCite, no equivalent field
     ncbi_df_select['type'] = 'Dataset'
+    ncbi_df_select['subjects'] = 'No keyword information' #filler to match DataCite, no equivalent field
+    ncbi_df_select['depositSize'] = 'No file size information' #filler to match DataCite, no equivalent field
+    ncbi_df_select['formats'] = 'No file size information' #filler to match DataCite, no equivalent field
+    ncbi_df_select['fileCount'] = 'No file size information' #filler to match DataCite processing, no equivalent field
+    ncbi_df_select['rights'] = 'Rights unclear' #filler to match DataCite, no equivalent field
+    ncbi_df_select['rightsCode'] = 'Rights unclear' #filler to match DataCite, no equivalent field
+    ncbi_df_select['views'] = 'No metrics information' #filler to match DataCite, no equivalent field
+    ncbi_df_select['downloads'] = 'No metrics information' #filler to match DataCite, no equivalent field
+    ncbi_df_select['citations'] = 'No metrics information' #filler to match DataCite, no equivalent field
+    ncbi_df_select['source'] = 'NCBI'
+    ncbi_df_select['affiliation_source'] = 'Not applicable' #filler to match DataCite processing, no equivalent field
+    ncbi_df_select['affiliation_permutation'] = 'University of Texas at Austin' #standardized for search
+    ncbi_df_select['hadPartialDuplicate'] = 'Not applicable' #filler to match DataCite processing, no equivalent field
+    ncbi_df_select['fileFormat'] = 'No file size information' #filler to match DataCite processing, no equivalent field
+    ncbi_df_select['containsCode'] = 'No file size information' #filler to match DataCite processing, no equivalent field
+    ncbi_df_select['onlyCode'] = 'No file size information' #filler to match DataCite processing, no equivalent field
+
+    #select metadata assessment for titles
+    ncbi_df_select['title_reformatted'] = ncbi_df_select['title'].str.replace('_', ' ') #gets around text linked by underscores counting as 1 word
+    ncbi_df_select['title_reformatted'] = ncbi_df_select['title_reformatted'].str.lower()
+    ncbi_df_select[['total_word_count_title', 'descriptive_word_count_title']] = ncbi_df_select['title_reformatted'].apply(lambda x: pd.Series(count_words(x)))
+    ncbi_df_select['descriptive_word_count_title'] = ncbi_df_select.apply(adjust_descriptive_count, axis=1)
+    ncbi_df_select['nondescriptive_word_count_title'] = ncbi_df_select['total_word_count_title'] - ncbi_df_select['descriptive_word_count_title']
+    ncbi_df_select['rights_standardized'] = 'Rights unclear'
     ncbi_df_select['repository2'] = 'NCBI'
+    ncbi_df_select['uni_lead'] = 'Affiliated (authorship unclear)'    
     ncbi_df_select['non_TDR_IR'] = 'not university or TDR'
     ncbi_df_select['US_federal'] = 'Federal US repo'
     ncbi_df_select['GREI'] = 'not GREI member'
     ncbi_df_select['scope'] = 'Specialist'
-    # ncbi_df_select['rights'] = 'Rights unclear'
-    # ncbi_df_select['rights_standardized'] = 'Rights unclear'
+    ncbi_df_select['type_reclassified'] = 'Dataset'
+    ncbi_df_select['doi_article'] = 'Not applicable' #filler to match Figshare workflow, no equivalent process or field
+    ncbi_df_select['title_article'] = 'Not applicable' #filler to match Figshare workflow, no equivalent process or field
+    ncbi_df_select['publication_year'] = 'Not applicable' #filler to match Figshare workflow, no equivalent process or field
+    ncbi_df_select['journal'] = 'Not applicable' #filler to match Figshare workflow, no equivalent process or field
+    ncbi_df_select['relatedIdentifierType'] = 'Not applicable' #filler to match Figshare workflow, no equivalent process or field
 
     if loadPreviousDataPlus:
         #for reading in previously generated file of all associated datasets
@@ -1768,9 +2016,9 @@ if ncbiWorkflow:
             print(f'No file with "{pattern}" was found in the directory "{directory}".')
 
     df_datacite_plus_ncbi = pd.concat([df_datacite_plus_dedup, ncbi_df_select], ignore_index=True)
-    df_datacite_plus_ncbi.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-figshare-ncbi_{resourceFilename}.csv', index=False)
+    df_datacite_plus_ncbi.to_csv(f'outputs/{todayDate}_{resourceFilename}_full-concatenated-dataframe-plus-figshare-ncbi.csv', index=False, encoding='utf-8')
 
-    # ncbi_df_select.to_csv(f'outputs/{todayDate}_NCBI-select-output-aligned.csv', index=False)
+    # ncbi_df_select.to_csv(f'outputs/{todayDate}_NCBI-select-output-aligned.csv', index=False, encoding='utf-8')
 
 #to load in externally queried Crossref data
 if any([loadPreviousData, loadPreviousDataPlus, loadPreviousDataPlusNCBI]) and loadCrossrefData:
@@ -1821,19 +2069,19 @@ if any([loadPreviousData, loadPreviousDataPlus, loadPreviousDataPlusNCBI]) and l
 
     if loadPreviousData:
         df_datacite_plus_crossref = pd.concat([df_datacite_pruned, crossref_true_datasets], ignore_index=True)
-        df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-crossref_{resourceFilename}.csv', index=False)
+        df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_{resourceFilename}_full-concatenated-dataframe-plus-crossref.csv', index=False, encoding='utf-8')
     elif loadPreviousDataPlus:
         df_datacite_plus_crossref = pd.concat([df_datacite_plus, crossref_true_datasets], ignore_index=True)
-        df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-figshare-crossref_{resourceFilename}.csv', index=False)
+        df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_{resourceFilename}_full-concatenated-dataframe-plus-figshare-crossref.csv', index=False, encoding='utf-8')
     elif loadPreviousDataPlusNCBI:
         df_datacite_plus_crossref = pd.concat([df_datacite_plus_ncbi, crossref_true_datasets], ignore_index=True)
-        df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-figshare-ncbi-crossref_{resourceFilename}.csv', index=False)
+        df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_{resourceFilename}_full-concatenated-dataframe-plus-figshare-ncbi-crossref.csv', index=False, encoding='utf-8')
     elif not loadPreviousData and not loadPreviousData and not figshareWorkflow1:
         df_datacite_plus_crossref = pd.concat([df_datacite_pruned, crossref_true_datasets], ignore_index=True)
-        df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-crossref_{resourceFilename}.csv', index=False)
+        df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_{resourceFilename}_full-concatenated-dataframe-plus-crossref.csv', index=False, encoding='utf-8')
     elif not loadPreviousData and not loadPreviousData and figshareWorkflow1:
         df_datacite_plus_crossref = pd.concat([df_datacite_plus, crossref_true_datasets], ignore_index=True)
-        df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-figshare-crossref_{resourceFilename}.csv', index=False)
+        df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_{resourceFilename}_full-concatenated-dataframe-plus-figshare-crossref.csv', index=False, encoding='utf-8')
 
 if not any([loadPreviousData, loadPreviousDataPlus, loadPreviousDataPlusNCBI]) and loadCrossrefData:
     print('\nReading in existing Crossref output file\n')
@@ -1857,13 +2105,15 @@ if not any([loadPreviousData, loadPreviousDataPlus, loadPreviousDataPlusNCBI]) a
 
     if not df_datacite_pruned.empty and df_datacite_plus_dedup.empty:
         df_datacite_plus_crossref = pd.concat([df_datacite_pruned, crossref_true_datasets], ignore_index=True)
-        df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-crossref_{resourceFilename}.csv', index=False)
+        df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_{resourceFilename}_full-concatenated-dataframe-plus-crossref.csv', index=False, encoding='utf-8')
     elif not df_datacite_plus_dedup.empty and df_datacite_plus_ncbi.empty:
         df_datacite_plus_crossref = pd.concat([df_datacite_plus, crossref_true_datasets], ignore_index=True)
-        df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-figshare-crossref_{resourceFilename}.csv', index=False)
+        df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_{resourceFilename}_full-concatenated-dataframe-plus-figshare-crossref.csv', index=False, encoding='utf-8')
     elif not df_datacite_plus_ncbi.empty:
         df_datacite_plus_crossref = pd.concat([df_datacite_plus_ncbi, crossref_true_datasets], ignore_index=True)
-        df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_full-concatenated-dataframe-plus-figshare-ncbi-crossref_{resourceFilename}.csv', index=False)
+        df_datacite_plus_crossref.to_csv(f'outputs/{todayDate}_{resourceFilename}_full-concatenated-dataframe-plus-figshare-ncbi-crossref.csv', index=False, encoding='utf-8')
 
 print('Done.\n')
 print(f'Time to run: {datetime.now() - startTime}')
+if test:
+    print("**REMINDER: THIS IS A TEST RUN, AND ANY RESULTS ARE NOT COMPLETE!**")

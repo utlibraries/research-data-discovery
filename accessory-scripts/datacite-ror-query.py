@@ -101,7 +101,7 @@ def retrieve_all_data_datacite(url, params):
     
     return all_data_datacite
 
-print("Starting DataCite retrieval based on affiliation.\n")
+print("Starting DataCite retrieval based on ROR-based affiliation.\n")
 data_datacite = retrieve_all_data_datacite(url_datacite, params_datacite)
 print(f"Number of ROR-affiliated datasets found by DataCite API: {len(data_datacite)}\n")
 data_select_datacite = [] 
@@ -187,8 +187,8 @@ df_datacite_initial.to_csv(f"accessory-outputs/{todayDate}_datacite-ror-retrieva
 
 ### The below code is mostly duplicated from the main codebase but may not be used b/c it is unlikely that all of these repositories will be retrieved via a ROR-based query ###
 
-figshare = df_datacite_initial[df_datacite_initial['doi'].str.contains('figshare')]
-df_datacite_no_figshare = df_datacite_initial[~df_datacite_initial['doi'].str.contains('figshare')]
+figshare = df_datacite_initial[df_datacite_initial['publisher'].str.contains('figshare')]
+df_datacite_no_figshare = df_datacite_initial[~df_datacite_initial['publisher'].str.contains('figshare')]
 figshare_no_versions = figshare[~figshare['doi'].str.contains(r'\.v\d+$')]
 #mediated workflow sometimes creates individual deposit for each file, want to treat as single dataset here
 for col in figshare_no_versions.columns:
@@ -200,13 +200,17 @@ figshare_no_versions['hadPartialDuplicate'] = figshare_no_versions.duplicated(su
 # figshare_no_versions_combined = figshare_no_versions.groupby('relatedIdentifier').agg(lambda x: '; '.join(sorted(map(str, set(x))))).reset_index()
 sum_columns = ['depositSize', 'views', 'citations', 'downloads']
 
-def agg_func(column_name, column):
+def agg_func(column_name):
     if column_name in sum_columns:
         return 'sum'
     else:
         return lambda x: sorted(set(x))
 
-agg_funcs = {col: agg_func(col, figshare_no_versions[col]) for col in figshare_no_versions.columns if col != 'relatedIdentifier'}
+#handling mixed-type columns that are expected to be only numeric
+for col in sum_columns:
+    if col in figshare_no_versions.columns:
+        figshare_no_versions[col] = pd.to_numeric(figshare_no_versions[col], errors='coerce')
+agg_funcs = {col: agg_func(col)for col in figshare_no_versions.columns if col != 'relatedIdentifier'}
 
 figshare_no_versions_combined = figshare_no_versions.groupby('relatedIdentifier').agg(agg_funcs).reset_index()
 # Convert all list-type columns to comma-separated strings
@@ -216,9 +220,9 @@ for col in figshare_no_versions_combined.columns:
 figshare_deduplicated = figshare_no_versions_combined.drop_duplicates(subset='relatedIdentifier', keep='first')
 df_datacite_v1 = pd.concat([df_datacite_no_figshare, figshare_deduplicated], ignore_index=True)
 
-##handling duplication of ICPSR, SAGE, Mendeley Data, Zenodo deposits (parent vs. child)
-lineageRepos = df_datacite_v1[df_datacite_v1['publisher'].str.contains('ICPSR|Mendeley|SAGE|Zenodo')]
-df_datacite_lineageRepos = df_datacite_v1[~df_datacite_v1['publisher'].str.contains('ICPSR|Mendeley|SAGE|Zenodo')]
+##handling duplication of ICPSR, Mendeley Data, Zenodo deposits (parent vs. child)
+lineageRepos = df_datacite_v1[df_datacite_v1['publisher'].str.contains('ICPSR|Mendeley|Zenodo')]
+df_datacite_lineageRepos = df_datacite_v1[~df_datacite_v1['publisher'].str.contains('ICPSR|Mendeley|Zenodo')]
 lineageRepos_deduplicated = lineageRepos[~lineageRepos['relationType'].str.contains('IsVersionOf|IsNewVersionOf', case=False, na=False)]
 ###the use of .v* and v* as filters works for these repositories but could accidentally remove non-duplicate DOIs if applied to other repositories
 lineageRepos_deduplicated = lineageRepos_deduplicated[~lineageRepos_deduplicated['doi'].str.contains(r'\.v\d+$')]
@@ -230,14 +234,15 @@ df_datacite_v2 = pd.concat([df_datacite_lineageRepos, lineageRepos_deduplicated]
 #handling file-level DOI granularity (all Dataverse installations)
 ##may need to expand search terms if you find a Dataverse installation without 'Dataverse' in name
 df_datacite_dedup = df_datacite_v2[~(df_datacite_v2['publisher'].str.contains('Dataverse|Texas Data Repository', case=False, na=False) & df_datacite_v2['containerIdentifier'].notnull())]
-df_datacite_dedup = df_datacite_dedup[~(df_datacite_dedup['doi'].str.count('/') >= 3)]
+##multi-condition to avoid removing multi-DOI consolidated Figshare deposits
+df_datacite_dedup = df_datacite_dedup[~((df_datacite_dedup['doi'].str.count('/') >= 3) & (df_datacite_dedup['publisher'] != 'figshare'))]
 
 #final sweeping dedpulication step, will catch a few odd edge cases that have been manually discovered
 ##mainly addresses hundreds of EMSL datasets that seem overly granularized (many deposits share all metadata other than DOI including detailed titles) - will not be relevant for all institutions
 df_sorted = df_datacite_dedup.sort_values(by='doi')
 df_datacite = df_sorted.drop_duplicates(subset=['title', 'first_author', 'relationType', 'relatedIdentifier', 'containerIdentifier'], keep='first')
 
-#standardizing specific repository name that has three permutations; may not be relevant for other institutions
+#standardizing specific repository name; may not be relevant for other institutions
 df_datacite.loc[df_datacite['publisher'].str.contains('Digital Rocks', case=False), 'publisher'] = 'Digital Porous Media Portal'
 df_datacite.to_csv(f"accessory-outputs/{todayDate}_datacite-ror-retrieval-filtered.csv")
 print(f"Number of ROR-affiliated datasets left after cleaning: {len(df_datacite)}\n")
@@ -346,14 +351,16 @@ df_datacite_initial.loc[df_datacite_initial['publisher'].str.contains('Taylor & 
 df_datacite_initial.loc[df_datacite_initial['publisher'].str.contains('Oak Ridge', case=True), 'publisher'] = 'Oak Ridge National Laboratory'
 df_datacite_initial.loc[df_datacite_initial['publisher'].str.contains('PARADIM', case=True), 'publisher'] = 'PARADIM'
 df_datacite_initial.loc[df_datacite_initial['publisher'].str.contains('4TU', case=True), 'publisher'] = '4TU.ResearchData'
+df_datacite_initial.loc[df_datacite_initial['publisher'].str.contains('Scratchpads', case=True), 'publisher'] = 'Global Biodiversity Information Facility (GBIF)'
+
 #handling Figshare partners
 df_datacite_initial.loc[df_datacite_initial['publisher'].str.contains('Taylor & Francis|SAGE|The Royal Society|SciELO journals', case=True), 'publisher'] = 'figshare'
 df_datacite_initial.to_csv(f"accessory-outputs/{todayDate}_datacite-single-affiliation-retrieval.csv")
 
 ### The below code is mostly duplicated from the main codebase but may not be used b/c it is unlikely that all of these repositories will be retrieved via a ROR-based query ###
 
-figshare = df_datacite_initial[df_datacite_initial['doi'].str.contains('figshare')]
-df_datacite_no_figshare = df_datacite_initial[~df_datacite_initial['doi'].str.contains('figshare')]
+figshare = df_datacite_initial[df_datacite_initial['publisher'].str.contains('figshare')]
+df_datacite_no_figshare = df_datacite_initial[~df_datacite_initial['publisher'].str.contains('figshare')]
 figshare_no_versions = figshare[~figshare['doi'].str.contains(r'\.v\d+$')]
 #mediated workflow sometimes creates individual deposit for each file, want to treat as single dataset here
 for col in figshare_no_versions.columns:
@@ -365,13 +372,17 @@ figshare_no_versions['hadPartialDuplicate'] = figshare_no_versions.duplicated(su
 # figshare_no_versions_combined = figshare_no_versions.groupby('relatedIdentifier').agg(lambda x: '; '.join(sorted(map(str, set(x))))).reset_index()
 sum_columns = ['depositSize', 'views', 'citations', 'downloads']
 
-def agg_func(column_name, column):
+def agg_func(column_name):
     if column_name in sum_columns:
         return 'sum'
     else:
         return lambda x: sorted(set(x))
 
-agg_funcs = {col: agg_func(col, figshare_no_versions[col]) for col in figshare_no_versions.columns if col != 'relatedIdentifier'}
+#handling mixed-type columns that are expected to be only numeric
+for col in sum_columns:
+    if col in figshare_no_versions.columns:
+        figshare_no_versions[col] = pd.to_numeric(figshare_no_versions[col], errors='coerce')
+agg_funcs = {col: agg_func(col)for col in figshare_no_versions.columns if col != 'relatedIdentifier'}
 
 figshare_no_versions_combined = figshare_no_versions.groupby('relatedIdentifier').agg(agg_funcs).reset_index()
 # Convert all list-type columns to comma-separated strings
@@ -395,7 +406,8 @@ df_datacite_v2 = pd.concat([df_datacite_lineageRepos, lineageRepos_deduplicated]
 #handling file-level DOI granularity (all Dataverse installations)
 ##may need to expand search terms if you find a Dataverse installation without 'Dataverse' in name
 df_datacite_dedup = df_datacite_v2[~(df_datacite_v2['publisher'].str.contains('Dataverse|Texas Data Repository', case=False, na=False) & df_datacite_v2['containerIdentifier'].notnull())]
-df_datacite_dedup = df_datacite_dedup[~(df_datacite_dedup['doi'].str.count('/') >= 3)]
+##multi-condition to avoid removing multi-DOI consolidated Figshare deposits
+df_datacite_dedup = df_datacite_dedup[~((df_datacite_dedup['doi'].str.count('/') >= 3) & (df_datacite_dedup['publisher'] != 'figshare'))]
 
 #final sweeping dedpulication step, will catch a few odd edge cases that have been manually discovered
 ##mainly addresses hundreds of EMSL datasets that seem overly granularized (many deposits share all metadata other than DOI including detailed titles) - will not be relevant for all institutions

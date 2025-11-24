@@ -137,6 +137,7 @@ for item in openalex:
             })
 
 df_openalex = pd.json_normalize(data_select_openalex)
+print(f'Number of affiliated PLOS articles:{len(df_openalex)}.\n')
 if test:
     df_openalex = df_openalex[:10]
 
