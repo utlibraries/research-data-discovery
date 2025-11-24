@@ -3,6 +3,24 @@
         "zenodoToken": "",
         "dataverseToken": ""
     },
+    "TOGGLES":{
+        "test": false,
+        "resourceTypeFilter": true,
+        "FigshareResourceTypeFilter": true,
+        "crossValidate": true,
+        "dataverse": true,
+        "dataverseDuplicates": true,
+        "austin": true,
+        "figshareWorkflow1": false,
+        "figshareWorkflow2": false,
+        "loadPreviousData": false,
+        "loadPreviousDataPlus": false,
+        "ncbiWorkflow": false,
+        "biopython": true,
+        "loadNCBIdata": false,
+        "loadPreviousDataPlusNCBI": false,
+        "loadCrossrefData": false                        
+    },
     "EMAIL": {
         "user_email": ""
     },
@@ -49,7 +67,11 @@
         "University of Texas Austin",
         "University fo Texas at Austin"
     ],
+    "PERMUTATIONS_IDENTIFIED": [
+        "The University of Texas at Austin"
+    ],
     "FIGSHARE_PARTNERS": {
+        "Microbiology Society": "https://openalex.org/P4310320497",
         "The Royal Society": "https://openalex.org/P4310319787",
         "Taylor & Francis": "https://openalex.org/P4310320547",
         "Karger Publishers": "https://openalex.org/P4310317820",
@@ -57,9 +79,8 @@
         "Brill": "https://openalex.org/P4310320561",
         "Genetics Society of America": "https://openalex.org/P4310319844",
         "Geological Society of America": "https://openalex.org/P4310311650",
-        "IOP Publishing": "https://doi.org/P4310320083",
-        "Microbiology Society": "https://doi.org/P4310320497",
-        "Optica Publishing Group": "https://doi.org/P4310315679"
+        "IOP Publishing": "https://openalex.org/P4310320083",
+        "Optica Publishing Group": "https://openalex.org/P4310315679"
     },
     "VARIABLES": {
         "PAGE_SIZES": {
@@ -78,7 +99,7 @@
             "openalex_test": 10,
             "openalex_prod": 1500,
             "zenodo_test": 5,
-            "zenodo_prod": 10
+            "zenodo_prod": 150
         },
         "PAGE_STARTS": {
             "dryad": 1,
@@ -289,5 +310,15 @@
         "application/x-ipynb+json": "Jupyter Notebook",
         "application/mathematica": "Mathematica Notebook",
         "text/x-matlab": "MATLAB"
+    },
+    "COMPRESSED_FORMATS": {
+        "application/gzip": "GZIP (compressed archive)",
+        "application/x-7z-compressed": "7z (compressed archive)",
+        "application/x-gzip": "GZIP (compressed archive)",
+        "application/x-rar": "RAR (compressed archive)",
+        "application/x-tar": "TAR (compressed archive)",
+        "application/zip": "ZIP (compressed archive)",
+        "TAR/GNU Zip (.tar.gz/.tgz) (application/x-gzip)": "TAR.GZ (compressed archive)",
+        "ZIP: PKZIP (application/zip)": "ZIP (compressed archive)"
     }
 }

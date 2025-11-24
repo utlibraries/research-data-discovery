@@ -221,7 +221,7 @@ if df_all_repos is not None:
     #standardize axes
     ax1.set_xlim(2016, 2026)
     ax1.set_xticks(list(range(2016, 2026, 2)) + [2026])
-    ax1.set_ylim(0, 15)   
+    ax1.set_ylim(0, 25)   
     ax1.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{int(x)}'))
     plt.tight_layout()
     # plt.show()
@@ -550,6 +550,21 @@ if df_metadata is not None:
     ax.grid(True, which='both', color='white', linestyle='-', linewidth=1.5)
     ax.tick_params(axis='both', which='major', labelsize=14)
     ax.set_axisbelow(True)
+    #add text to bars
+    for bar in bars:
+        # bar.get_width() gives the x-value (the count)
+        width = bar.get_width() 
+        # bar.get_y() gives the bottom edge of the bar, bar.get_height()/2 centers the text vertically
+        y_position = bar.get_y() + bar.get_height() / 2 
+        ax.text(
+            width + 5,      # x position: width + a small buffer (5 units)
+            y_position,     # y position: center of the bar
+            f'{width:.0f}', # The text to display (the count, formatted as an integer)
+            ha='left',      # Horizontal alignment: left (starts just after the bar)
+            va='center',    # Vertical alignment: center
+            fontsize=12,
+            color='black'
+        )
     plt.tight_layout()
     # ax.set_xticks(datasets_size['size_bin'])
     # ax.set_xticklabels(datasets_size['size_bin'])
@@ -631,9 +646,64 @@ if df_metadata is not None:
     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
 
+    ###combined licensing with high-freq and low-freq divided
+    plot_filename = f"{todayDate}_datasets-by-licensing-combined-stacked.{plotFormat}"
+    licensing_combo = pd.concat([licensing, licensing_select], ignore_index=True)
+    df_pivot = licensing_combo.pivot(index='License', columns='Type', values='Count').fillna(0)
+    # Sort by 'All datasets' count in DESCENDING order to easily identify the top 3
+    df_pivot_sorted = df_pivot.sort_values(by='All datasets', ascending=False)
+
+    top_licenses = ['CC0', 'Rights unclear', 'CC BY']
+    df_top = df_pivot_sorted[df_pivot_sorted.index.isin(top_licenses)].sort_values(by='All datasets', ascending=True)
+    df_bottom = df_pivot_sorted[~df_pivot_sorted.index.isin(top_licenses)].sort_values(by='All datasets', ascending=True)
+
+    fig, (ax1, ax2) = plt.subplots(
+        nrows=2, 
+        ncols=1, 
+        figsize=(10, 10), 
+        sharex=False #set different x-axis ranges
+    )
+    bar_height = 0.4 #fix bar height
+
+    y_top = np.arange(len(df_top.index))
+    ax1.barh(y_top - bar_height/2, df_top['All datasets'], height=bar_height, label='All datasets', color='#E1BE6A', edgecolor='black')
+    ax1.barh(y_top + bar_height/2, df_top['Removal of Dryad and TDR datasets'], height=bar_height, label='Removal of Dryad and TDR datasets', color='#40B0A6', edgecolor='black')
+    ax1.set_yticks(y_top)
+    ax1.set_yticklabels(df_top.index, fontsize=14)
+    ax1.set_xlabel("Dataset count", fontsize=15)
+    ax1.set_title("Distribution of datasets by identified license (Top 3)", fontsize=16)
+    ax1.grid(True, which='both', color='white', linestyle='-', linewidth=1.5)
+    ax1.set_facecolor('#f7f7f7')
+    ax1.tick_params(axis='x', which='major', labelsize=14)
+    ax1.set_axisbelow(True)
+
+    y_bottom = np.arange(len(df_bottom.index))
+    ax2.barh(y_bottom - bar_height/2, df_bottom['All datasets'], height=bar_height, label='All datasets', color='#E1BE6A', edgecolor='black')
+    ax2.barh(y_bottom + bar_height/2, df_bottom['Removal of Dryad and TDR datasets'], height=bar_height, label='Removal of Dryad and TDR datasets', color='#40B0A6', edgecolor='black')
+    ax2.set_xlabel("Dataset count", fontsize=15)
+    ax2.set_yticks(y_bottom)
+    ax2.set_yticklabels(df_bottom.index, fontsize=14)
+    ax2.set_title("Distribution of datasets by identified license (remainder)", fontsize=16)
+    ax2.grid(True, which='both', color='white', linestyle='-', linewidth=1.5)
+    ax2.set_facecolor('#f7f7f7')
+    ax2.tick_params(axis='x', which='major', labelsize=14)
+    ax2.set_axisbelow(True)
+    ax2.set_xlim(0, 25) 
+    ax2.legend(loc='lower right', fontsize=12) 
+
+    plt.subplots_adjust(hspace=0.1) 
+    plt.tight_layout()
+
+    plot_path = os.path.join(plots_dir, plot_filename)
+    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
+
     ##descriptive words
     plot_filename = f"{todayDate}_datasets-title-descriptive.{plotFormat}"
-    descriptiveTitles = df_metadata['descriptive_word_count_title'].value_counts()
+    ###remove any consolidated Figshare dataset (will have much longer 'titles')
+    df_subset = df_metadata[~(df_metadata['doi'].str.contains(';') & (df_metadata['publisher'] == 'figshare'))]
+    print(f'Number of retained datasets for title analysis: {len(df_subset)}\n')
+    descriptiveTitles = df_subset['descriptive_word_count_title'].value_counts()
 
     fig, ax = plt.subplots(figsize=(10, 7))
     bars = ax.bar(descriptiveTitles.index, descriptiveTitles.values, edgecolor='black', color="#7d4d6a")
@@ -652,7 +722,7 @@ if df_metadata is not None:
 
     ##non-descriptive words
     plot_filename = f"{todayDate}_datasets-title-nondescriptive.{plotFormat}"
-    nondescriptiveTitles = df_metadata['nondescriptive_word_count_title'].value_counts()
+    nondescriptiveTitles = df_subset['nondescriptive_word_count_title'].value_counts()
 
     fig, ax = plt.subplots(figsize=(10, 7))
     bars = ax.bar(nondescriptiveTitles.index, nondescriptiveTitles.values, edgecolor='black')
@@ -710,7 +780,7 @@ if filtered_df is not None:
     plot_filename = f"{todayDate}_dryad-timestamp-comparison.{plotFormat}"
     #columns to compare
     # year_columns = ['registeredYear', 'createdYear', 'issuedYear', 'availableYear', 'publicationYear (DataCite)', 'publicationYear (Dryad)']
-    year_columns = ['availableYear', 'publicationYear (DataCite)', 'publicationYear (Dryad)']
+    year_columns = ['availableYear', 'publicationYear (Dryad)', 'publicationYear (DataCite)', ]
 
     # Convert year columns to numeric, coercing errors to NaN
     for col in year_columns:
@@ -750,65 +820,252 @@ if filtered_df is not None:
     long_formatUT_df['source'] = long_formatUT_df['year_column'].map(repo_mapping)
 
     # Plotting
-    fig, axs = plt.subplots(2, 1, figsize=(10, 8))
+    color_map = {
+    'registeredYear': 'blue',
+    'createdYear': 'brown',
+    'publicationYear (DataCite)': '#D67AB1',
+    'publicationYear (Dryad)': '#8DAB7F',
+    'issuedYear': 'purple',
+    'availableYear': '#EF8354'
+    }
+
+    # 2 rows (UT Austin, All Datasets) x N columns (Variables defined in year_columns)
+    # Assuming year_columns is a list of the variables you want to plot (e.g., 3 variables)
+    N_cols = len(year_columns)
+    fig, axs = plt.subplots(2, N_cols, figsize=(5 * N_cols, 8), sharex=True)
+
+    # Define common formatting parameters
+    common_title_size = 14
+    common_label_size = 12
+    common_tick_size = 10
+    facecolor = '#f7f7f7'
+    grid_color = 'white'
+
+    # --- Plotting Loop ---
+    for i, year_column in enumerate(year_columns):
+        
+        # Define the color for the current variable using the map
+        line_color = color_map.get(year_column, 'black')
+        
+        # ---------------------------------------------
+        # Row 0: UT Austin-affiliated Dryad datasets
+        # ---------------------------------------------
+        # Check if we need to access a single axis object or an array element
+        if N_cols == 1:
+            ax_ut = axs[0]
+        else:
+            ax_ut = axs[0, i]
+            
+        subset_ut = long_formatUT_df[long_formatUT_df['year_column'] == year_column]
+        
+        # Plot the line using the specific color
+        ax_ut.plot(
+            subset_ut['year'],
+            subset_ut['count'],
+            linewidth=3.5,
+            color=line_color  # <--- Using the variable-specific color
+        )
+        
+        # Set titles (Variable name as the column title)
+        ax_ut.set_title(f"{year_column}", fontsize=common_title_size)
+        
+        # Formatting (omitting the repeated formatting for brevity here, 
+        # but the rest of your formatting stays the same)
+        ax_ut.set_facecolor(facecolor)
+        ax_ut.grid(True, which='both', color=grid_color, linestyle='-', linewidth=1.5)
+        ax_ut.set_axisbelow(True)
+        ax_ut.tick_params(axis='both', labelsize=common_tick_size)
+        ax_ut.set_xlim(2011, 2025)
+        ax_ut.set_xticks(list(range(2011, 2025, 2)) + [2025])
+        ax_ut.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{int(x)}'))
+        
+        # Set Y-axis label only on the leftmost plot in the row
+        if i == 0:
+            ax_ut.set_ylabel("Dataset count", fontsize=common_label_size)
+        
+        # ---------------------------------------------
+        # Row 1: All Dryad datasets
+        # ---------------------------------------------
+        if N_cols == 1:
+            ax_all = axs[1]
+        else:
+            ax_all = axs[1, i]
+            
+        subset_all = long_format_df[long_format_df['year_column'] == year_column]
+        
+        # Plot the line using the specific color
+        ax_all.plot(
+            subset_all['year'],
+            subset_all['count'],
+            linewidth=3.5,
+            color=line_color # <--- Using the variable-specific color
+        )
+
+        # Formatting
+        ax_all.set_facecolor(facecolor)
+        ax_all.grid(True, which='both', color=grid_color, linestyle='-', linewidth=1.5)
+        ax_all.set_axisbelow(True)
+        ax_all.tick_params(axis='both', labelsize=common_tick_size)
+        ax_all.set_xlim(2011, 2025)
+        ax_all.set_xticks(list(range(2011, 2025, 2)) + [2025])
+        ax_all.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{int(x)}'))
+        
+        # Set Y-axis label only on the leftmost plot in the row
+        if i == 0:
+            ax_all.set_ylabel("Dataset count", fontsize=common_label_size)
+        
+        # Set X-axis label only on the bottom row
+        ax_all.set_xlabel("Year", fontsize=common_label_size)
+
+    # --- Final Layout ---
+    # Add overall titles for the rows to clarify which row is which,
+    # as the column titles are now just the variable names.
+    fig.suptitle('Comparison of Dataset Year Attributes (UT Austin vs. All Dryad)', fontsize=16, y=1.02)
+    plt.subplots_adjust(hspace=0.5)
+    fig.text(0.5, 0.95, 'UT Austin Dryad datasets', ha='center', va='center', fontsize=18, weight='bold')
+    fig.text(0.5, 0.52, 'All Dryad datasets', ha='center', va='center', fontsize=18, weight='bold')
+    plt.tight_layout(rect=[0.02, 0, 1, 0.98])
+
+    plot_path = os.path.join(plots_dir, plot_filename)
+    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
+
+
+    #### TRYING BAR GRAPH VERSION ####
+    plot_filename = f"{todayDate}_dryad-timestamp-comparison-bar.{plotFormat}"
+    TARGET_YEARS = list(range(2011, 2026)) # Includes 2011 through 2025
+
+    # Define the colors and columns
     color_map = {
         'registeredYear': 'blue',
         'createdYear': 'brown',
         'publicationYear (DataCite)': '#D67AB1',
-        'publicationYear (Dryad)': '#8DAB7F',
+        'publicationYear (Dryad)': "#211C52",
         'issuedYear': 'purple',
-        'availableYear': '#EF8354'
+        'availableYear': "#798FC7"
     }
 
-    # Full dataset plot
-    for year_column in long_format_df['year_column'].unique():
-        subset = long_format_df[long_format_df['year_column'] == year_column]
-        axs[1].plot(subset['year'], subset['count'], linewidth=3.5, label=year_column, color=color_map.get(year_column, 'black'))
-    axs[1].set_title('All Dryad datasets', fontsize=16)
-    axs[1].set_xlabel("")
-    axs[1].set_ylabel("Dataset count", fontsize=15)
-    axs[1].tick_params(axis='x', labelsize=14)
-    axs[1].tick_params(axis='y', labelsize=14)
-    axs[1].set_facecolor('#f7f7f7')
-    axs[1].grid(True, which='both', color='white', linestyle='-', linewidth=1.5)
-    axs[1].set_axisbelow(True)
-    axs[1].set_xlim(2011, 2025)
-    axs[1].set_xticks(list(range(2011, 2025, 2)) + [2025])
-    axs[1].xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{int(x)}'))
-    axs[1].legend()
+    # --- DUMMY DATA SETUP (REPLACE WITH YOUR ACTUAL DATA LOADING) ---
+    # NOTE: The following lines are placeholders for a runnable example.
+    try:
+        long_format_df.head()
+        long_formatUT_df.head()
+    except NameError:
+        # Creating simulated data if the actual dataframes are not found (for demonstration)
+        print("WARNING: Using dummy data for demonstration purposes.")
+        
+        # Use the full target year range for better simulation
+        years_sim = np.arange(2011, 2026) 
+        data_points = []
+        
+        # We simulate data for ALL variables, but only filter the dataframes below
+        mock_variables = list(color_map.keys())
+        
+        for y in years_sim:
+            for var in mock_variables:
+                # All data (higher counts)
+                data_points.append({'year': y, 'count': np.random.randint(50, 200) + (y-2011)*20, 'year_column': var, 'dataset_type': 'All'})
+                # UT Austin data (lower counts)
+                data_points.append({'year': y, 'count': np.random.randint(5, 50) + (y-2011)*5, 'year_column': var, 'dataset_type': 'UT'})
 
-    # Subset dataset plot
-    for year_column in long_formatUT_df['year_column'].unique():
-        subset = long_formatUT_df[long_formatUT_df['year_column'] == year_column]
-        axs[0].plot(subset['year'], subset['count'], linewidth=3.5, label=year_column, color=color_map.get(year_column, 'black'))
+        full_df = pd.DataFrame(data_points)
+        long_format_df = full_df[full_df['dataset_type'] == 'All'].copy()
+        long_formatUT_df = full_df[full_df['dataset_type'] == 'UT'].copy()
+    # --- END DUMMY DATA SETUP ---
+
+    # --- FIX 2: Filtering the dataframes for the desired columns and year range ---
+    long_format_df_filtered = long_format_df[
+        long_format_df['year_column'].isin(year_columns) &
+        long_format_df['year'].isin(TARGET_YEARS)
+    ].copy()
+
+    long_formatUT_df_filtered = long_formatUT_df[
+        long_formatUT_df['year_column'].isin(year_columns) &
+        long_formatUT_df['year'].isin(TARGET_YEARS)
+    ].copy()
+
+    # Get the years for the X-axis from the predefined target list
+    unique_years = TARGET_YEARS
+    x_labels = unique_years
+
+    # Calculate bar properties
+    num_cols = len(year_columns)
+    bar_width = 0.25 # Adjusted width for 3 bars (was 0.12 for 6)
+    total_group_width = bar_width * num_cols
+
+    # Create 2 rows, 1 column figure
+    fig, axs = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
+
+    # Calculate the initial offset to center the group of bars around the X-tick
+    initial_offset = - (total_group_width / 2) + (bar_width / 2)
+    # The X positions for the main groups (e.g., [2011, 2012, 2013, ...])
+    x_group_positions = np.arange(len(unique_years))
+
+    # --- Plotting Loop (Iterates through each variable/column) ---
+    for i, year_column in enumerate(year_columns):
+        line_color = color_map.get(year_column, 'black')
+        
+        # ---------------------------------------------
+        # Calculate the x-position for this specific bar within the group
+        x_positions = x_group_positions + (initial_offset + i * bar_width)
+        
+        # Extract counts for the current column and ensure all years are present
+        
+        # Row 0: UT Austin-affiliated Dryad datasets
+        # Now using the filtered dataframe
+        subset_ut = long_formatUT_df_filtered[long_formatUT_df_filtered['year_column'] == year_column].set_index('year')
+        ut_counts = subset_ut.reindex(unique_years, fill_value=0)['count'].values
+        axs[0].bar(
+            x_positions, 
+            ut_counts, 
+            width=bar_width, 
+            label=year_column, 
+            color=line_color,
+            edgecolor='black',
+            linewidth=0.5
+        )
+        
+        # Row 1: All Dryad datasets
+        # Now using the filtered dataframe
+        subset_all = long_format_df_filtered[long_format_df_filtered['year_column'] == year_column].set_index('year')
+        all_counts = subset_all.reindex(unique_years, fill_value=0)['count'].values
+        axs[1].bar(
+            x_positions, 
+            all_counts, 
+            width=bar_width, 
+            label=year_column, 
+            color=line_color,
+            edgecolor='black',
+            linewidth=0.5
+        )
+
+    # --- Common Formatting ---
+
+    # Setting general style for both axes
+    for ax in axs:
+        ax.set_facecolor('#f7f7f7')
+        ax.grid(axis='y', color='white', linestyle='-', linewidth=1.5) 
+        ax.set_axisbelow(True)
+        ax.tick_params(axis='both', labelsize=14)
+        
+        # Set X-axis ticks to be centered beneath the bar groups
+        ax.set_xticks(x_group_positions)
+        # Use every 2nd year to prevent cluttering the 2011-2025 axis
+        ax.set_xticklabels([f'{y}' if i % 2 == 0 else '' for i, y in enumerate(x_labels)], rotation=45, ha='right')
+        ax.set_xlim(x_group_positions[0] - 0.5, x_group_positions[-1] + 0.5)
+
+    # Formatting for Row 0 (UT Austin)
     axs[0].set_title('UT Austin-affiliated Dryad datasets', fontsize=16)
-    axs[0].set_xlabel("")
     axs[0].set_ylabel("Dataset count", fontsize=15)
-    axs[0].tick_params(axis='x', labelsize=14)
-    axs[0].tick_params(axis='y', labelsize=14)
-    axs[0].set_facecolor('#f7f7f7')
-    axs[0].grid(True, which='both', color='white', linestyle='-', linewidth=1.5)
-    axs[0].set_axisbelow(True)
-    axs[0].set_xlim(2011, 2025)
-    axs[0].set_xticks(list(range(2011, 2025, 2)) + [2025])
-    axs[0].set_ylim(0, long_formatUT_df['count'].max() + 10)
-    axs[0].xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{int(x)}'))
-    axs[0].legend()
-    
-    # ax.set_title('Number of datasets by year', fontsize=15)
-    # ax.set_xlabel("")
-    # ax.set_ylabel("Number of Entries")
-    # ax.tick_params(axis='x', labelsize=12)
-    # ax.tick_params(axis='y', labelsize=12)
-    # ax.set_facecolor('#f7f7f7')
-    # ax.grid(True, which='both', color='white', linestyle='-', linewidth=1.5)
-    # ax.set_axisbelow(True)
-    # ax.set_xlim(2011, 2025)
-    # ax.set_xticks(list(range(2011, 2025, 2)) + [2025])
-    # ax.set_ylim(0, max([max(counts.values) for counts in yearly_counts.values()]) + 200)
-    # ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{int(x)}'))
-    # # plt.setp(ax.get_xticklabels(), rotation=45, ha='right')
-    # ax.legend()
+    axs[0].legend(loc='upper left', fontsize=10) 
+
+    # Formatting for Row 1 (All Dryad)
+    axs[1].set_title('All Dryad datasets', fontsize=16)
+    axs[1].set_ylabel("Dataset count", fontsize=15)
+    axs[1].set_xlabel("Year", fontsize=15) 
+    axs[1].legend(loc='upper left', fontsize=10) 
+
+    # Ensure a clean look
     plt.tight_layout()
 
     plot_path = os.path.join(plots_dir, plot_filename)
