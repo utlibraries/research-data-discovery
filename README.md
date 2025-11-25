@@ -3,12 +3,12 @@
 # Scripted process for retrieving metadata on institutional-affiliated research dataset publications
 
 ## Metadata
-* *Version*: 1.1.1 (not released to Zenodo)
-* *Released*: 2025/11/24
+* *Version*: 1.2.1 (not released to Zenodo)
+* *Released*: 2025/11/25
 * *Author(s)*: Bryan Gee (UT Libraries, University of Texas at Austin; bryan.gee@austin.utexas.edu; ORCID: [0000-0003-4517-3290](https://orcid.org/0000-0003-4517-3290))
 * *Contributor(s)*: None
 * *License*: [MIT](https://opensource.org/license/mit)
-* *README last updated*: 2025/11/24
+* *README last updated*: 2025/11/25
 
 ## Table of Contents
 1. [Purpose](#purpose)
@@ -76,7 +76,7 @@ The [DataCite Citation Corpus](https://support.datacite.org/docs/data-citation-c
 
 ## Outputs
 ### Main workflow
-Four files will always be saved regardless of whether cross-validation or Figshare workflows are used. If multiple resource types are queried, they will be listed in a hyphen-delimited string in that 'field' of the filename.
+Five files will always be saved regardless of whether cross-validation or Figshare workflows are used. If multiple resource types are queried, they will be listed in a hyphen-delimited string in that 'field' of the filename.
 
 1. ***date*_*resource type*_datacite-initial-output.csv**: This file is exported immediately after subsetting the API response for select fields and has had no additional processing (e.g., deduplication) performed; as a result, it can be quite large if your query retrieves a large number of file-level DOIs or other forms of overgranularized datasets.
 
@@ -85,6 +85,8 @@ Four files will always be saved regardless of whether cross-validation or Figsha
 3. ***date*_*resource type*_datacite-output-for-metadata-assessment.csv**: A nearly identical file to ***date*_datacite-output-for-metadata-assessment.csv**; currently, the information unique to this file is a column that converts mimeTypes to standardized, 'friendly' file formats, columns for whether a dataset contains any code format and whether it contains only code formats, and columns where the calculated number of descriptive and non-descriptive words in the dataset title are recorded. *Note: as of 2025/11/23, this file is now essentially fully redundant with the fourth file and maybe deprecated in the future.*
 
 4. ***date*_*resource type*_full-concatenated-dataframe.csv**: This file is the final output of the main workflow. It has applied all filtering and de-duplication steps, trimmed the listed variables to a select few for readability, and has added some categorical variables (e.g., whether a repository is part of GREI). 
+
+5. ***date*_*resource type*_unique-affiliated-researchers.csv**: This file returns a dataframe of unique researchers that were listed as being affiliated with the focal institution (across any of the queried metadata fields, so this will include the institution and likely some subsidiary units being listed as a researcher itself). The current script is set to combine entries using *[RapidFuzz](https://github.com/rapidfuzz/RapidFuzz)* (a fuzzy matching module) to circumvent minor variation in name construction, but it is intrinsically imperfect because of commonality of some names and will fail to identify some instances of multiple entries for one person. Requiring an exact match to combine author entries can be easily done, however, and the output will show which names were combined in the fuzzy matching.
 
 If you run the cross-validation process, the script will return a list of datasets from a specific repository that were retrieved from DataCite but not from that repository's API and vice versa (e.g., ***date*_DataCite-into-Dryad_joint-unmatched-dataframe.csv**). It will also combine all of the affiliated datasets that were only retrieved from the repository-specific API into one file (***date*_datacite-additional-cross-validation.csv**).
 
@@ -177,8 +179,10 @@ If you have any questions or comments that don't warrant creating an issue, feel
 ## Contributions
 A previous version added a *CONTRIBUTING.md* file that has been temporarily removed after internal discussion about university policies on distributing open source software. The gist is that there are still some policy details to be sorted out (not just for this project) with our technology transfer office, so we're unable to accept external pull requests at the moment (this does not affect others' ability to fork and modify the repository). We hope this will get clarity in the near future so that it can be opened up. In the interim, if you have ideas of how to improve something (excluding aesthetics), feel free to reach out by email or make an issue.
 
-## Version notes (new 1.1.1)
+## Version notes (new 1.2.1)
 The current version scheme follows a MAJOR.MINOR.PATCH format, with a 'major' change involving added functionality or significant revisions to the workflow; a 'minor' change involving addition of accessory files or minor revisions to the workflow (e.g., refactoring); and a 'patch' is a bug fix. We plan to make formal releases synced with a DOI-backed deposit and will reset the version at that point.
+
+Version **1.2.1** involves refactoring of some code and some new functionality. The **dataset-records-retrieval.py** has been modified to handle when the cross-validation process is enabled but the retrieval from one specific repository's API fails (this seems to happen not infrequently with Zenodo's) to allow the script to continue. A bug fix has also been applied related to querying of the OpenAlex API as part of the secondary Figshare workflow (failed retrieval of Taylor & Francis records, failure to retrieve publication year, de-duplication of initial records). New functionality has also been added here to generate a dataframe of all unique author names, with select columns combined in order to get, for example, a total count of datasets. Note that this relies on exact matching of author names, so common names are more likely to represent multiple individuals, and the same individual may be represented by multiple entries (e.g., Last, First format vs. First Last; inclusion of middle initial). Additional functionality has also been added to begin logging script runs in two forms, a text file unique to each run and a composite CSV file that appends all logs. Both record the same information (e.g., timestamp, runtime, certain parameters from the config file). Additional work on logging is planned.
 
 Version **1.1.1** makes a few minor modifications to accessory scripts and some more sizable modifications to the primary **dataset-records-retrieval.py** script. The **crossref-query.py** script was updated to add additional fields for concatenation with the DataCite output (most are 'filler' uniform values as no equivalent field exists); the script was also modified to have a toggle for enabling or disabling a filter for a particular resource type (see [issue #82](https://github.com/utlibraries/research-data-discovery/issues/82)). The **datacite-ror-query.py** script was updated to fix a bug in which some Figshare deposits were inadvertently being removed from the dataframe after consolidation. The **dataset-records-retrieval-visualization.py** script was updated in response to feedback from peer review of the manuscript; several plots have been slightly altered or rearranged. The **config-template.json** file has been updated to reflect the externalization of toggles for the primary **dataset-records-retrieval.py** script and the addition of a list of compressed file formats in order to identify datasets with such files (if file information is provided). The changes to the primary **dataset-records-retrieval.py** script include:
 * externalizing toggles to the **config.json** file

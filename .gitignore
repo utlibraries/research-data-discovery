@@ -1,6 +1,7 @@
 # Custom
 config.json
 test/
+logs/
 inputs/
 outputs/
 script-archive/
