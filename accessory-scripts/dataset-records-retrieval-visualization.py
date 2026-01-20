@@ -89,7 +89,7 @@ else:
 #Renavigate back to the script directory
 os.chdir(script_dir)
 
-### Source of affiliation detection
+### Source of affiliation detection (which queried metadata field) ###
 if df_datacite is not None:
     plot_filename = f"{todayDate}_affiliation-source-counts.{plotFormat}"
     affiliation_source_counts = df_datacite['affiliation_source'].value_counts(ascending=True)
@@ -110,7 +110,7 @@ if df_datacite is not None:
 
     print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
 
-    ### Affiliation variation
+    ### Which institutional permutation was detected ###
     plot_filename = f"{todayDate}_affiliation-permutation-counts.{plotFormat}"
     affiliation_source_counts = df_datacite['affiliation_source'].value_counts(ascending=True)
     affiliation_permutation_counts = df_datacite['affiliation_permutation'].value_counts(ascending=True)
@@ -130,8 +130,8 @@ if df_datacite is not None:
     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
 
-### Repository count
-####toggle for whether or not to include an aggregate 'Other' bar
+### Repository count ###
+####toggle for whether or not to include an aggregate 'Other' bar for low-count repositories
 includeOther = False
 if df_all_repos_plus is not None:
     plot_filename = f"{todayDate}_repository-counts-30-plus.{plotFormat}"
@@ -158,7 +158,7 @@ if df_all_repos_plus is not None:
     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
 
-    ### only for first/last author UT datasets
+    ### restrict to first/last author UT datasets
     plot_filename = f"{todayDate}_repository-counts-30-plus_UT-first-last.{plotFormat}"
     repo_counts = df_all_repos_plus_ut_lead['repository'].value_counts()
     df_all_repos_plus_ut_lead['collapsed_repository'] = df_all_repos_plus_ut_lead['repository'].apply(lambda x: x if repo_counts[x] >= 20 else 'Other')
@@ -184,7 +184,7 @@ if df_all_repos_plus is not None:
     print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
 
 
-### Discovered Figshare deposits
+### Discovered Figshare deposits ###
 if df_extra_figshare is not None:
     plot_filename = f"{todayDate}_extra-figshare-counts.{plotFormat}"
     extra_publisher_counts = df_extra_figshare['repository'].value_counts(ascending=True)
@@ -204,11 +204,11 @@ if df_extra_figshare is not None:
     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
 
-### Mendeley Data deposit volume over time
+### Mendeley Data deposit volume over time ###
 if df_all_repos is not None:
     plot_filename = f"{todayDate}_mendeley-data-by-year.{plotFormat}"
     mendeley = df_all_repos[df_all_repos['repository'] == 'Mendeley Data']
-    mendeley_annual = mendeley['publicationYear'].value_counts(ascending=True)
+    mendeley_annual = mendeley['publication_year'].value_counts(ascending=True)
     fig, ax1 = plt.subplots(figsize=(10, 7))
     bars = ax1.bar(mendeley_annual.index, mendeley_annual.values, color='#ab2328', edgecolor='black')
     ax1.set_xlabel("")
@@ -229,11 +229,13 @@ if df_all_repos is not None:
     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
 
-### Repository deposit volume over time
+### Repository deposit volume over time ###
 if df_all_repos_plus is not None:
     plot_filename = f"{todayDate}_repositories-by-year.{plotFormat}"
-    df_all_repos_2024 = df_all_repos_plus[df_all_repos_plus['publicationYear'] < 2025]
-    repository_counts_by_year = df_all_repos_2024.groupby(['repository', 'publicationYear']).size().reset_index(name="counts")
+    df_all_repos_plus['publication_year'] = pd.to_numeric(df_all_repos_plus['publication_year'], errors='coerce')
+    df_all_repos_plus['publication_year'] = df_all_repos_plus['publication_year'].fillna(0).astype(float).astype(int)
+    df_all_repos_2024 = df_all_repos_plus[(df_all_repos_plus['publication_year'] <= 2024) & (df_all_repos_plus['publication_year'] > 0)]
+    repository_counts_by_year = df_all_repos_2024.groupby(['repository', 'publication_year']).size().reset_index(name="counts")
 
     selected_repos = ['Dryad', 'Harvard Dataverse', 'Zenodo', 'Texas Data Repository', 'NCBI']
     df_filtered = repository_counts_by_year[repository_counts_by_year['repository'].isin(selected_repos)]
@@ -247,7 +249,7 @@ if df_all_repos_plus is not None:
     # fig, ax = plt.subplots()
     # for i, repo in enumerate(df_filtered['repository'].unique()):
     #     subset = df_filtered[df_filtered['repository'] == repo]
-    #     ax.plot(subset['publicationYear'], subset['counts'], label=repo, linewidth=2, color=color_map[repo])
+    #     ax.plot(subset['publication_year'], subset['counts'], label=repo, linewidth=2, color=color_map[repo])
     # # Customize the plot
     # ax.set_xlabel("")
     # ax.set_ylabel("Number of discovered datasets")
@@ -265,9 +267,8 @@ if df_all_repos_plus is not None:
     fig, axs = plt.subplots(1, 5, figsize=(10, 5))
     for i, repo in enumerate(df_filtered['repository'].unique()):
         subset = df_filtered[df_filtered['repository'] == repo]
-        # ax = axs[i // 3, i % 3]
         ax = axs[i]
-        ax.plot(subset['publicationYear'], subset['counts'], label=repo, linewidth=3.5, color=color_map[repo])
+        ax.plot(subset['publication_year'], subset['counts'], label=repo, linewidth=3.5, color=color_map[repo])
         ax.set_title(repo, fontsize = 14)
         # ax.set_xlabel("Publication Year")
         # ax.set_ylabel("Number of discovered datasets")
@@ -278,7 +279,6 @@ if df_all_repos_plus is not None:
         ax.tick_params(axis='both', which='major', labelsize=12)
         ax.set_axisbelow(True)
         ax.yaxis.label.set_size(12)
-        #standardize axes
         ax.set_xlim(2014, 2024)
         ax.set_xticks(list(range(2014, 2024, 2)) + [2024])
         ax.set_ylim(0, 250)   
@@ -291,8 +291,6 @@ if df_all_repos_plus is not None:
             ax.set_ylabel('')
             ax.tick_params(axis='y', which='both', left=False)
 
-    # Remove the empty subplot (bottom right)
-    # fig.delaxes(axs[1][2])
     plt.tight_layout()
 
     plot_path = os.path.join(plots_dir, plot_filename)
@@ -301,8 +299,10 @@ if df_all_repos_plus is not None:
 
     ### only for first/last author UT datasets
     plot_filename = f"{todayDate}_repositories-by-year_UT-first-last.{plotFormat}"
-    df_all_repos_plus_ut_lead_2024 = df_all_repos_plus_ut_lead[df_all_repos_plus_ut_lead['publicationYear'] < 2025]
-    repository_counts_by_year = df_all_repos_plus_ut_lead_2024.groupby(['repository', 'publicationYear']).size().reset_index(name="counts")
+    df_all_repos_plus_ut_lead['publication_year'] = pd.to_numeric(df_all_repos_plus_ut_lead['publication_year'], errors='coerce')
+    df_all_repos_plus_ut_lead['publication_year'] = df_all_repos_plus_ut_lead['publication_year'].fillna(0).astype(float).astype(int)
+    df_all_repos_plus_ut_lead_2024 = df_all_repos_plus_ut_lead[(df_all_repos_plus_ut_lead['publication_year'] <= 2024) & (df_all_repos_plus['publication_year'] > 0)]
+    repository_counts_by_year = df_all_repos_plus_ut_lead_2024.groupby(['repository', 'publication_year']).size().reset_index(name="counts")
 
     selected_repos = ['Dryad', 'Harvard Dataverse', 'Zenodo', 'Texas Data Repository']
     df_filtered = repository_counts_by_year[repository_counts_by_year['repository'].isin(selected_repos)]
@@ -315,9 +315,8 @@ if df_all_repos_plus is not None:
     fig, axs = plt.subplots(1, 4, figsize=(16, 6))
     for i, repo in enumerate(df_filtered['repository'].unique()):
         subset = df_filtered[df_filtered['repository'] == repo]
-        # ax = axs[i // 3, i % 3]
         ax = axs[i]
-        ax.plot(subset['publicationYear'], subset['counts'], label=repo, linewidth=3.5, color=color_map[repo])
+        ax.plot(subset['publication_year'], subset['counts'], label=repo, linewidth=3.5, color=color_map[repo])
         ax.set_title(repo, fontsize = 15)
         # ax.set_xlabel("Publication Year")
         # ax.set_ylabel("Number of discovered datasets")
@@ -328,21 +327,19 @@ if df_all_repos_plus is not None:
         ax.tick_params(axis='both', which='major', labelsize=12)
         ax.set_axisbelow(True)
         ax.yaxis.label.set_size(12)
-        #standardize axes
         ax.set_xlim(2014, 2024)
         ax.set_xticks(list(range(2014, 2024, 2)) + [2024])
         ax.set_ylim(0, 230)   
         ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{int(x)}'))
         plt.setp(ax.get_xticklabels(), rotation=45, ha='right')
-    # Remove the empty subplot (bottom right)
-    # fig.delaxes(axs[1][2])
+
     plt.tight_layout()
 
     plot_path = os.path.join(plots_dir, plot_filename)
     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
 
-### Authorship position of UT researcher
+### Authorship position of UT researcher ###
 if df_all_repos_plus is not None:
     plot_filename = f"{todayDate}_ut-author-position_all-repos.{plotFormat}"
     authorPositions = df_all_repos_plus['uni_lead'].value_counts(ascending=True)
@@ -356,7 +353,7 @@ if df_all_repos_plus is not None:
         'Affiliated (authorship unclear)': "#b4b3b2"
     }
 
-    # Ensure the colors are in the same order as the columns
+    #ensure the colors are in the same order as the columns
     colors = [color_map.get(position, '#cccccc') for position in authorPositions.index]
 
     fig, ax = plt.subplots(figsize=(10, 7))
@@ -404,33 +401,29 @@ if df_all_repos_plus is not None:
     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
 
-###metadata assessments
+### Metadata assessments ###
 ####contains software
 if df_metadata is not None:
     plot_filename = f"{todayDate}_contains-software.{plotFormat}"
-    #making some df modifications
-    ##will want to move into main script later
-    # Convert 'TRUE'/'FALSE' strings to Boolean values
-    df_metadata['containsCode'] = df_metadata['containsCode'].astype(str).str.upper().map({'TRUE': True, 'FALSE': False})
-    df_metadata['onlyCode'] = df_metadata['onlyCode'].astype(str).str.upper().map({'TRUE': True, 'FALSE': False})
+    df_metadata['contains_code'] = df_metadata['contains_code'].astype(str).str.upper().map({'TRUE': True, 'FALSE': False})
+    df_metadata['only_code'] = df_metadata['only_code'].astype(str).str.upper().map({'TRUE': True, 'FALSE': False})
 
-    # Apply your logic to create 'containsCodeAdjusted'
-    df_metadata['containsCodeAdjusted'] = (
-        df_metadata['onlyCode'].apply(lambda x: 'Only code' if x else None)
+    df_metadata['contains_code_adjusted'] = (
+        df_metadata['only_code'].apply(lambda x: 'Only code' if x else None)
         .combine_first(
             df_metadata.apply(
                 lambda row: (
                     'No file format information' if row['formats'] == 'No file information'
-                    else 'No code' if not row['containsCode']
-                    else 'Code and non-code files' if row['containsCode'] and not row['onlyCode']
-                    else 'Only code' if row['onlyCode']
+                    else 'No code' if not row['contains_code']
+                    else 'Code and non-code files' if row['contains_code'] and not row['only_code']
+                    else 'Only code' if row['only_code']
                     else 'Unknown'
                 ),
                 axis=1
             )
         )
     )
-    softwareInclusions = df_metadata['containsCodeAdjusted'].value_counts(ascending=True)
+    softwareInclusions = df_metadata['contains_code_adjusted'].value_counts(ascending=True)
     color_map = {
             'No file information': "#eaeaea",
             'Code and non-code files': "#d41159",
@@ -453,27 +446,9 @@ if df_metadata is not None:
     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
 
-    # plot_filename = f"{todayDate}_only-software.{plotFormat}"
-    # softwareOnly = df_metadata['onlyCode'].value_counts(ascending=True)
-
-    # fig, ax = plt.subplots(figsize=(10, 7))
-    # softwareOnly.plot(kind='barh', stacked=False, ax=ax, color="#51bed3", edgecolor='black')
-    # ax.set_xlabel("Count", fontsize=15)
-    # ax.set_ylabel("")
-    # ax.set_title("Count of datasets that only contain software format(s)", fontsize=16)
-    # ax.set_facecolor('#f7f7f7')
-    # ax.grid(True, which='both', color='white', linestyle='-', linewidth=1.5)
-    # ax.tick_params(axis='both', which='major', labelsize=14)
-    # ax.set_axisbelow(True)
-    # plt.tight_layout()
-
-    # plot_path = os.path.join(plots_dir, plot_filename)
-    # plt.savefig(plot_path, format=plotFormat, dpi=dpi)
-    # print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
-
-    ## file size
+    ####file size
     plot_filename = f"{todayDate}_datasets-by-size-bin.{plotFormat}"
-    df_metadata['depositSize'] = pd.to_numeric(df_metadata['depositSize'], errors='coerce')
+    df_metadata['deposit_size'] = pd.to_numeric(df_metadata['deposit_size'], errors='coerce')
 
     bins = [
         -1, # For 0 or negative/NaN
@@ -513,13 +488,13 @@ if df_metadata is not None:
     ]
 
     df_metadata['size_bin'] = pd.cut(
-        df_metadata['depositSize'],
+        df_metadata['deposit_size'],
         bins=bins,
         labels=labels
     )
     df_metadata['size_bin'] = df_metadata['size_bin'].cat.add_categories(['Empty', 'No data'])
-    df_metadata.loc[df_metadata['depositSize'].isna(), 'size_bin'] = 'No data'
-    df_metadata.loc[(df_metadata['depositSize'] <= 0), 'size_bin'] = 'Empty'
+    df_metadata.loc[df_metadata['deposit_size'].isna(), 'size_bin'] = 'No data'
+    df_metadata.loc[(df_metadata['deposit_size'] <= 0), 'size_bin'] = 'Empty'
     plot_filename = f"{todayDate}_datasets-by-size-bin.{plotFormat}"
     
     #count the occurrences of each size_bin, but keep the categorical order
@@ -528,19 +503,16 @@ if df_metadata is not None:
 
     datasets_size = datasets_size.sort_values(by='size_bin', key=lambda x: x.cat.codes)
 
-    # Separate the "Empty" and "No data" rows
     empty_row = datasets_size[datasets_size['size_bin'] == 'Empty']
     no_data_row = datasets_size[datasets_size['size_bin'] == 'No data']
 
-    # Remove "Empty" and "No data" from the main DataFrame
     datasets_size = datasets_size[
         (datasets_size['size_bin'] != 'Empty') & (datasets_size['size_bin'] != 'No data')
     ]
 
-    # Append "Empty" and "No data" to the bottom in the desired order
+    #append "Empty" and "No data" to the bottom of the df
     datasets_size = pd.concat([datasets_size, empty_row, no_data_row], ignore_index=True)
 
-        
     fig, ax = plt.subplots(figsize=(10, 7))
     bars = ax.barh(datasets_size['size_bin'], datasets_size['count'], color="#9b9f7a", edgecolor='black')
     ax.set_ylabel("Dataset count", fontsize=15)
@@ -552,28 +524,24 @@ if df_metadata is not None:
     ax.set_axisbelow(True)
     #add text to bars
     for bar in bars:
-        # bar.get_width() gives the x-value (the count)
         width = bar.get_width() 
-        # bar.get_y() gives the bottom edge of the bar, bar.get_height()/2 centers the text vertically
         y_position = bar.get_y() + bar.get_height() / 2 
         ax.text(
-            width + 5,      # x position: width + a small buffer (5 units)
-            y_position,     # y position: center of the bar
-            f'{width:.0f}', # The text to display (the count, formatted as an integer)
-            ha='left',      # Horizontal alignment: left (starts just after the bar)
-            va='center',    # Vertical alignment: center
+            width + 5,      
+            y_position,     
+            f'{width:.0f}', 
+            ha='left',     
+            va='center',   
             fontsize=12,
             color='black'
         )
     plt.tight_layout()
-    # ax.set_xticks(datasets_size['size_bin'])
-    # ax.set_xticklabels(datasets_size['size_bin'])
 
     plot_path = os.path.join(plots_dir, plot_filename)
     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
 
-    ##licensing
+    ####licensing
     plot_filename = f"{todayDate}_datasets-by-licensing-all.{plotFormat}"
     licensing = df_metadata['rights_standardized'].value_counts()
     print(licensing)
@@ -593,7 +561,7 @@ if df_metadata is not None:
     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
 
-    ###licensing minus Dryad and TDR (CC0 default or mandatory)
+    #####licensing minus Dryad and TDR (CC0 default or mandatory)
     plot_filename = f"{todayDate}_datasets-by-licensing-select.{plotFormat}"
     df_metadata_select = df_metadata[~df_metadata['publisher'].str.contains('Dryad|Texas', case=True, na=False)]
     licensing_select = df_metadata_select['rights_standardized'].value_counts()
@@ -613,10 +581,9 @@ if df_metadata is not None:
     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
 
-    ###combined licensing
+    ####combined licensing
     plot_filename = f"{todayDate}_datasets-by-licensing-combined.{plotFormat}"
-    ####convert to dfs
-    # Convert Series to DataFrame and add 'Type' column
+    #####convert to dfs
     licensing = licensing.reset_index()
     licensing.columns = ['License', 'Count']
     licensing_select = licensing_select.reset_index()
@@ -650,7 +617,6 @@ if df_metadata is not None:
     plot_filename = f"{todayDate}_datasets-by-licensing-combined-stacked.{plotFormat}"
     licensing_combo = pd.concat([licensing, licensing_select], ignore_index=True)
     df_pivot = licensing_combo.pivot(index='License', columns='Type', values='Count').fillna(0)
-    # Sort by 'All datasets' count in DESCENDING order to easily identify the top 3
     df_pivot_sorted = df_pivot.sort_values(by='All datasets', ascending=False)
 
     top_licenses = ['CC0', 'Rights unclear', 'CC BY']
@@ -663,7 +629,7 @@ if df_metadata is not None:
         figsize=(10, 10), 
         sharex=False #set different x-axis ranges
     )
-    bar_height = 0.4 #fix bar height
+    bar_height = 0.4
 
     y_top = np.arange(len(df_top.index))
     ax1.barh(y_top - bar_height/2, df_top['All datasets'], height=bar_height, label='All datasets', color='#E1BE6A', edgecolor='black')
@@ -698,9 +664,9 @@ if df_metadata is not None:
     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
 
-    ##descriptive words
+    ####descriptive words
     plot_filename = f"{todayDate}_datasets-title-descriptive.{plotFormat}"
-    ###remove any consolidated Figshare dataset (will have much longer 'titles')
+    #####remove any consolidated Figshare dataset (will have much longer 'titles')
     df_subset = df_metadata[~(df_metadata['doi'].str.contains(';') & (df_metadata['publisher'] == 'figshare'))]
     print(f'Number of retained datasets for title analysis: {len(df_subset)}\n')
     descriptiveTitles = df_subset['descriptive_word_count_title'].value_counts()
@@ -720,7 +686,7 @@ if df_metadata is not None:
     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
 
-    ##non-descriptive words
+    ####non-descriptive words
     plot_filename = f"{todayDate}_datasets-title-nondescriptive.{plotFormat}"
     nondescriptiveTitles = df_subset['nondescriptive_word_count_title'].value_counts()
 
@@ -767,22 +733,19 @@ def load_most_recent_file(outputs_dir, pattern):
 #patterns for output files from API queries
 patternA = '_Dryad-into-DataCite_joint-all-dataframe.csv'
 df_dryad = load_most_recent_file(outputs_dir, patternA)
-df_dryad.rename(columns={'publicationYear_x': 'publicationYear (DataCite)', 'publicationYear_y': 'publicationYear (Dryad)'}, inplace=True)
+df_dryad.rename(columns={'publicationYear_x': 'publication_year (DataCite)', 'publicationYear_y': 'publication_year (Dryad)'}, inplace=True)
 
 patternB = '_Dryad-into-DataCite_joint-all-dataframe_ut-austin'
 df_dryadUT = load_most_recent_file(outputs_dir, patternB)
-df_dryadUT.rename(columns={'publicationYear_x': 'publicationYear (DataCite)', 'publicationYear_y': 'publicationYear (Dryad)'}, inplace=True)
+df_dryadUT.rename(columns={'publicationYear_x': 'publication_year (DataCite)', 'publicationYear_y': 'publication_year (Dryad)'}, inplace=True)
 
-# Filter: remove DOIs with two slashes unless they contain 'digitalcsic'
+#remove DOIs with two slashes unless they contain 'digitalcsic'
 filtered_df = df_dryad[~df_dryad['doi'].str.contains(r'/.*/') | df_dryad['doi'].str.contains(r'/digitalcsic/')]
 
 if filtered_df is not None:
     plot_filename = f"{todayDate}_dryad-timestamp-comparison.{plotFormat}"
-    #columns to compare
-    # year_columns = ['registeredYear', 'createdYear', 'issuedYear', 'availableYear', 'publicationYear (DataCite)', 'publicationYear (Dryad)']
-    year_columns = ['availableYear', 'publicationYear (Dryad)', 'publicationYear (DataCite)', ]
+    year_columns = ['availableYear', 'publication_year (Dryad)', 'publication_year (DataCite)', ]
 
-    # Convert year columns to numeric, coercing errors to NaN
     for col in year_columns:
         filtered_df[col] = pd.to_numeric(filtered_df[col], errors='coerce')
         df_dryadUT[col] = pd.to_numeric(df_dryadUT[col], errors='coerce')
@@ -792,7 +755,7 @@ if filtered_df is not None:
     yearly_counts_df = pd.DataFrame(yearly_counts)
     yearly_countsUT = {col: df_dryadUT[col].value_counts().sort_index() for col in year_columns}
     yearly_countsUT_df = pd.DataFrame(yearly_countsUT)
-    # Convert wide format to long format
+    #convert wide format to long format
     long_format_df = yearly_counts_df.reset_index().melt(
         id_vars=['index'],
         var_name='year_column',
@@ -805,175 +768,117 @@ if filtered_df is not None:
         value_name='count'
     )
     long_formatUT_df.rename(columns={'index': 'year'}, inplace=True)
-    #map column to source
     repo_mapping = {
         'registeredYear': 'DataCite',
         'createdYear': 'DataCite',
-        'publicationYear (DataCite)': 'DataCite',
-        'publicationYear (Dryad)': 'Dryad API',
+        'publication_year (DataCite)': 'DataCite',
+        'publication_year (Dryad)': 'Dryad API',
         'issuedYear': 'DataCite',
         'availableYear': 'DataCite'
     }
 
-    #Apply mapping
     long_format_df['source'] = long_format_df['year_column'].map(repo_mapping)
     long_formatUT_df['source'] = long_formatUT_df['year_column'].map(repo_mapping)
 
-    # Plotting
-    color_map = {
-    'registeredYear': 'blue',
-    'createdYear': 'brown',
-    'publicationYear (DataCite)': '#D67AB1',
-    'publicationYear (Dryad)': '#8DAB7F',
-    'issuedYear': 'purple',
-    'availableYear': '#EF8354'
-    }
+    ### line graph version ###
+    # color_map = {
+    # 'registeredYear': 'blue',
+    # 'createdYear': 'brown',
+    # 'publication_year (DataCite)': '#D67AB1',
+    # 'publication_year (Dryad)': '#8DAB7F',
+    # 'issuedYear': 'purple',
+    # 'availableYear': '#EF8354'
+    # }
 
-    # 2 rows (UT Austin, All Datasets) x N columns (Variables defined in year_columns)
-    # Assuming year_columns is a list of the variables you want to plot (e.g., 3 variables)
-    N_cols = len(year_columns)
-    fig, axs = plt.subplots(2, N_cols, figsize=(5 * N_cols, 8), sharex=True)
+    # N_cols = len(year_columns)
+    # fig, axs = plt.subplots(2, N_cols, figsize=(5 * N_cols, 8), sharex=True)
 
-    # Define common formatting parameters
-    common_title_size = 14
-    common_label_size = 12
-    common_tick_size = 10
-    facecolor = '#f7f7f7'
-    grid_color = 'white'
+    # common_title_size = 14
+    # common_label_size = 12
+    # common_tick_size = 10
+    # facecolor = '#f7f7f7'
+    # grid_color = 'white'
 
-    # --- Plotting Loop ---
-    for i, year_column in enumerate(year_columns):
+    # for i, year_column in enumerate(year_columns):
         
-        # Define the color for the current variable using the map
-        line_color = color_map.get(year_column, 'black')
+    #     line_color = color_map.get(year_column, 'black')
         
-        # ---------------------------------------------
-        # Row 0: UT Austin-affiliated Dryad datasets
-        # ---------------------------------------------
-        # Check if we need to access a single axis object or an array element
-        if N_cols == 1:
-            ax_ut = axs[0]
-        else:
-            ax_ut = axs[0, i]
+    #     if N_cols == 1:
+    #         ax_ut = axs[0]
+    #     else:
+    #         ax_ut = axs[0, i]
             
-        subset_ut = long_formatUT_df[long_formatUT_df['year_column'] == year_column]
+    #     subset_ut = long_formatUT_df[long_formatUT_df['year_column'] == year_column]
         
-        # Plot the line using the specific color
-        ax_ut.plot(
-            subset_ut['year'],
-            subset_ut['count'],
-            linewidth=3.5,
-            color=line_color  # <--- Using the variable-specific color
-        )
+    #     ax_ut.plot(
+    #         subset_ut['year'],
+    #         subset_ut['count'],
+    #         linewidth=3.5,
+    #         color=line_color
+    #     )
         
-        # Set titles (Variable name as the column title)
-        ax_ut.set_title(f"{year_column}", fontsize=common_title_size)
+    #     ax_ut.set_title(f"{year_column}", fontsize=common_title_size)
         
-        # Formatting (omitting the repeated formatting for brevity here, 
-        # but the rest of your formatting stays the same)
-        ax_ut.set_facecolor(facecolor)
-        ax_ut.grid(True, which='both', color=grid_color, linestyle='-', linewidth=1.5)
-        ax_ut.set_axisbelow(True)
-        ax_ut.tick_params(axis='both', labelsize=common_tick_size)
-        ax_ut.set_xlim(2011, 2025)
-        ax_ut.set_xticks(list(range(2011, 2025, 2)) + [2025])
-        ax_ut.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{int(x)}'))
+    #     ax_ut.set_facecolor(facecolor)
+    #     ax_ut.grid(True, which='both', color=grid_color, linestyle='-', linewidth=1.5)
+    #     ax_ut.set_axisbelow(True)
+    #     ax_ut.tick_params(axis='both', labelsize=common_tick_size)
+    #     ax_ut.set_xlim(2011, 2025)
+    #     ax_ut.set_xticks(list(range(2011, 2025, 2)) + [2025])
+    #     ax_ut.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{int(x)}'))
         
-        # Set Y-axis label only on the leftmost plot in the row
-        if i == 0:
-            ax_ut.set_ylabel("Dataset count", fontsize=common_label_size)
+    #     if i == 0:
+    #         ax_ut.set_ylabel("Dataset count", fontsize=common_label_size)
         
-        # ---------------------------------------------
-        # Row 1: All Dryad datasets
-        # ---------------------------------------------
-        if N_cols == 1:
-            ax_all = axs[1]
-        else:
-            ax_all = axs[1, i]
+    #     if N_cols == 1:
+    #         ax_all = axs[1]
+    #     else:
+    #         ax_all = axs[1, i]
             
-        subset_all = long_format_df[long_format_df['year_column'] == year_column]
+    #     subset_all = long_format_df[long_format_df['year_column'] == year_column]
         
-        # Plot the line using the specific color
-        ax_all.plot(
-            subset_all['year'],
-            subset_all['count'],
-            linewidth=3.5,
-            color=line_color # <--- Using the variable-specific color
-        )
+    #     ax_all.plot(
+    #         subset_all['year'],
+    #         subset_all['count'],
+    #         linewidth=3.5,
+    #         color=line_color
+    #     )
 
-        # Formatting
-        ax_all.set_facecolor(facecolor)
-        ax_all.grid(True, which='both', color=grid_color, linestyle='-', linewidth=1.5)
-        ax_all.set_axisbelow(True)
-        ax_all.tick_params(axis='both', labelsize=common_tick_size)
-        ax_all.set_xlim(2011, 2025)
-        ax_all.set_xticks(list(range(2011, 2025, 2)) + [2025])
-        ax_all.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{int(x)}'))
+    #     ax_all.set_facecolor(facecolor)
+    #     ax_all.grid(True, which='both', color=grid_color, linestyle='-', linewidth=1.5)
+    #     ax_all.set_axisbelow(True)
+    #     ax_all.tick_params(axis='both', labelsize=common_tick_size)
+    #     ax_all.set_xlim(2011, 2025)
+    #     ax_all.set_xticks(list(range(2011, 2025, 2)) + [2025])
+    #     ax_all.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{int(x)}'))
         
-        # Set Y-axis label only on the leftmost plot in the row
-        if i == 0:
-            ax_all.set_ylabel("Dataset count", fontsize=common_label_size)
-        
-        # Set X-axis label only on the bottom row
-        ax_all.set_xlabel("Year", fontsize=common_label_size)
+    #     if i == 0:
+    #         ax_all.set_ylabel("Dataset count", fontsize=common_label_size)
+    #     ax_all.set_xlabel("Year", fontsize=common_label_size)
 
-    # --- Final Layout ---
-    # Add overall titles for the rows to clarify which row is which,
-    # as the column titles are now just the variable names.
-    fig.suptitle('Comparison of Dataset Year Attributes (UT Austin vs. All Dryad)', fontsize=16, y=1.02)
-    plt.subplots_adjust(hspace=0.5)
-    fig.text(0.5, 0.95, 'UT Austin Dryad datasets', ha='center', va='center', fontsize=18, weight='bold')
-    fig.text(0.5, 0.52, 'All Dryad datasets', ha='center', va='center', fontsize=18, weight='bold')
-    plt.tight_layout(rect=[0.02, 0, 1, 0.98])
+    # fig.suptitle('Comparison of Dataset Year Attributes (UT Austin vs. All Dryad)', fontsize=16, y=1.02)
+    # plt.subplots_adjust(hspace=0.5)
+    # fig.text(0.5, 0.95, 'UT Austin Dryad datasets', ha='center', va='center', fontsize=18, weight='bold')
+    # fig.text(0.5, 0.52, 'All Dryad datasets', ha='center', va='center', fontsize=18, weight='bold')
+    # plt.tight_layout(rect=[0.02, 0, 1, 0.98])
 
-    plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
-    print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
+    # plot_path = os.path.join(plots_dir, plot_filename)
+    # plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    # print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
 
-
-    #### TRYING BAR GRAPH VERSION ####
+    #### bar graph version ####
     plot_filename = f"{todayDate}_dryad-timestamp-comparison-bar.{plotFormat}"
     TARGET_YEARS = list(range(2011, 2026)) # Includes 2011 through 2025
 
-    # Define the colors and columns
     color_map = {
         'registeredYear': 'blue',
         'createdYear': 'brown',
-        'publicationYear (DataCite)': '#D67AB1',
-        'publicationYear (Dryad)': "#211C52",
+        'publication_year (DataCite)': '#D67AB1',
+        'publication_year (Dryad)': "#211C52",
         'issuedYear': 'purple',
         'availableYear': "#798FC7"
     }
 
-    # --- DUMMY DATA SETUP (REPLACE WITH YOUR ACTUAL DATA LOADING) ---
-    # NOTE: The following lines are placeholders for a runnable example.
-    try:
-        long_format_df.head()
-        long_formatUT_df.head()
-    except NameError:
-        # Creating simulated data if the actual dataframes are not found (for demonstration)
-        print("WARNING: Using dummy data for demonstration purposes.")
-        
-        # Use the full target year range for better simulation
-        years_sim = np.arange(2011, 2026) 
-        data_points = []
-        
-        # We simulate data for ALL variables, but only filter the dataframes below
-        mock_variables = list(color_map.keys())
-        
-        for y in years_sim:
-            for var in mock_variables:
-                # All data (higher counts)
-                data_points.append({'year': y, 'count': np.random.randint(50, 200) + (y-2011)*20, 'year_column': var, 'dataset_type': 'All'})
-                # UT Austin data (lower counts)
-                data_points.append({'year': y, 'count': np.random.randint(5, 50) + (y-2011)*5, 'year_column': var, 'dataset_type': 'UT'})
-
-        full_df = pd.DataFrame(data_points)
-        long_format_df = full_df[full_df['dataset_type'] == 'All'].copy()
-        long_formatUT_df = full_df[full_df['dataset_type'] == 'UT'].copy()
-    # --- END DUMMY DATA SETUP ---
-
-    # --- FIX 2: Filtering the dataframes for the desired columns and year range ---
     long_format_df_filtered = long_format_df[
         long_format_df['year_column'].isin(year_columns) &
         long_format_df['year'].isin(TARGET_YEARS)
@@ -984,35 +889,22 @@ if filtered_df is not None:
         long_formatUT_df['year'].isin(TARGET_YEARS)
     ].copy()
 
-    # Get the years for the X-axis from the predefined target list
     unique_years = TARGET_YEARS
     x_labels = unique_years
-
-    # Calculate bar properties
     num_cols = len(year_columns)
-    bar_width = 0.25 # Adjusted width for 3 bars (was 0.12 for 6)
+    bar_width = 0.25
     total_group_width = bar_width * num_cols
 
-    # Create 2 rows, 1 column figure
     fig, axs = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
 
-    # Calculate the initial offset to center the group of bars around the X-tick
     initial_offset = - (total_group_width / 2) + (bar_width / 2)
-    # The X positions for the main groups (e.g., [2011, 2012, 2013, ...])
     x_group_positions = np.arange(len(unique_years))
 
-    # --- Plotting Loop (Iterates through each variable/column) ---
     for i, year_column in enumerate(year_columns):
         line_color = color_map.get(year_column, 'black')
         
-        # ---------------------------------------------
-        # Calculate the x-position for this specific bar within the group
         x_positions = x_group_positions + (initial_offset + i * bar_width)
         
-        # Extract counts for the current column and ensure all years are present
-        
-        # Row 0: UT Austin-affiliated Dryad datasets
-        # Now using the filtered dataframe
         subset_ut = long_formatUT_df_filtered[long_formatUT_df_filtered['year_column'] == year_column].set_index('year')
         ut_counts = subset_ut.reindex(unique_years, fill_value=0)['count'].values
         axs[0].bar(
@@ -1025,8 +917,6 @@ if filtered_df is not None:
             linewidth=0.5
         )
         
-        # Row 1: All Dryad datasets
-        # Now using the filtered dataframe
         subset_all = long_format_df_filtered[long_format_df_filtered['year_column'] == year_column].set_index('year')
         all_counts = subset_all.reindex(unique_years, fill_value=0)['count'].values
         axs[1].bar(
@@ -1039,72 +929,37 @@ if filtered_df is not None:
             linewidth=0.5
         )
 
-    # --- Common Formatting ---
-
-    # Setting general style for both axes
     for ax in axs:
         ax.set_facecolor('#f7f7f7')
         ax.grid(axis='y', color='white', linestyle='-', linewidth=1.5) 
         ax.set_axisbelow(True)
         ax.tick_params(axis='both', labelsize=14)
         
-        # Set X-axis ticks to be centered beneath the bar groups
         ax.set_xticks(x_group_positions)
-        # Use every 2nd year to prevent cluttering the 2011-2025 axis
         ax.set_xticklabels([f'{y}' if i % 2 == 0 else '' for i, y in enumerate(x_labels)], rotation=45, ha='right')
         ax.set_xlim(x_group_positions[0] - 0.5, x_group_positions[-1] + 0.5)
 
-    # Formatting for Row 0 (UT Austin)
     axs[0].set_title('UT Austin-affiliated Dryad datasets', fontsize=16)
     axs[0].set_ylabel("Dataset count", fontsize=15)
     axs[0].legend(loc='upper left', fontsize=10) 
 
-    # Formatting for Row 1 (All Dryad)
     axs[1].set_title('All Dryad datasets', fontsize=16)
     axs[1].set_ylabel("Dataset count", fontsize=15)
     axs[1].set_xlabel("Year", fontsize=15) 
     axs[1].legend(loc='upper left', fontsize=10) 
 
-    # Ensure a clean look
     plt.tight_layout()
 
     plot_path = os.path.join(plots_dir, plot_filename)
     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
 
-#RADS reanalysis (versions)
+### RADS reanalysis (versions) ###
 patternC = '_RADS-figshare-datasets-progressive-filtering-summary.csv'
 df_rads = load_most_recent_file(outputs_dir, patternC)
 
 patternD = 'figshare-associated-articles-merged.csv'
 df_rads_figshare_articles = load_most_recent_file(outputs_dir, patternD)
-
-# ###Journals linked to RADS Figshare deposits
-# if df_rads_figshare_articles is not None:
-#     plot_filename = f"{todayDate}_RADS-linked-figshare-articles.{plotFormat}"
-#     journalCount = df_rads_figshare_articles['journal'].value_counts(ascending=True)
-    
-#     color_map = {
-#         'Springer Nature': '#bf5700',
-#         'CABI Publishing': "#76a0ee"
-#     }
-
-#     # Ensure the colors are in the same order as the columns
-#     colors = [color_map.get(position, '#cccccc') for position in journalCount.index]
-
-#     fig, ax = plt.subplots(figsize=(10, 7))
-#     bars = ax.barh(journalCount.index, journalCount.values, color=colors, edgecolor='black')
-#     ax.set_xlabel("Article count", fontsize=15)
-#     ax.set_ylabel("")
-#     ax.set_title("Distribution of linked Figshare articles", fontsize=16)
-#     ax.set_facecolor('#f7f7f7')
-#     ax.grid(True, which='both', color='white', linestyle='-', linewidth=1.5)
-#     ax.tick_params(axis='both', which='major', labelsize=14)
-#     ax.set_axisbelow(True)
-#     plt.tight_layout()
-#     plot_path = os.path.join(plots_dir, plot_filename)
-#     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
-#     print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
 
 if df_rads is not None:
     #get proportions of each count
@@ -1115,7 +970,6 @@ if df_rads is not None:
 
     plot_filename = f"{todayDate}_RADS-version-reduction-comparison.{plotFormat}"
 
-    # Define colors
     type_colors = {
         'Original': "#8e1804",
         'Versions removed': "#d35b5b",
