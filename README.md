@@ -1,14 +1,14 @@
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![DOI](https://zenodo.org/badge/858925551.svg)](https://zenodo.org/doi/10.5281/zenodo.15786308) [![arXiv](https://img.shields.io/badge/arXiv-2507.01228-b31b1b.svg?style=flat)](https://arxiv.org/abs/2507.01228)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![DOI](https://zenodo.org/badge/858925551.svg)](https://doi.org/10.5281/zenodo.18037530) [![arXiv](https://img.shields.io/badge/arXiv-2507.01228-b31b1b.svg?style=flat)](https://arxiv.org/abs/2507.01228)
 
 # Scripted process for retrieving metadata on institutional-affiliated research dataset publications
 
 ## Metadata
-* *Version*: 2.0.0 (**released to Zenodo**)
-* *Released*: 2025/12/23
+* *Version*: 2.1.0 (**not released to Zenodo**)
+* *Released*: 2026/01/20
 * *Author(s)*: Bryan Gee (UT Libraries, University of Texas at Austin; bryan.gee@austin.utexas.edu; ORCID: [0000-0003-4517-3290](https://orcid.org/0000-0003-4517-3290))
 * *Contributor(s)*: None
 * *License*: [MIT](https://opensource.org/license/mit)
-* *README last updated*: 2025/12/23
+* *README last updated*: 2026/01/20
 
 ## Table of Contents
 1. [Purpose](#purpose)
@@ -120,7 +120,7 @@ If you run the **accessory-scripts/crossref-query.py** script, it will return tw
 
 ## Important caveats
 ### Object classification
-The primary workflow and certain secondary workflows only collect items that are labeled as a 'Dataset' in the [DataCite metadata schema](https://datacite-metadata-schema.readthedocs.io/en/4.6/introduction/about-schema/) (for some repositories, this is the only allowable object type), although many resource types can be queried at once. The same is true of the accessory Crossref script; Crossref [explicitly recommends using 'dataset' for non-datasets](https://www.crossref.org/documentation/schema-library/markup-guide-record-types/datasets/) if another label is not available or more appropriate. It is a given that not all of these meet the criteria for 'data' proper, in part or in whole, and may include other materials like appendices or software; the present workflow does not attempt to make inferences on the precise nature of content (although this is planned). Conversely, some deposits that do constitute 'data' proper are labeled as another object type (e.g., 'Component,' 'Text'), and these are not presently detected. Retrieving objects through the DataCite API requires downstream processing, as some objects that labeled as 'datasets' are either individual files within a DOI-backed deposit (common to Dataverse installations) or are versions of the same deposit ([Zenodo, which mints a parent DOI and then a separate DOI for each version](https://zenodo.org/help/versioning)). The primary script omits individual files that are part of a larger project and restricts the Zenodo deposits to a single record per 'lineage' of deposits. 
+The primary workflow and certain secondary workflows only collect items that are labeled as a 'Dataset' in the [DataCite metadata schema](https://datacite-metadata-schema.readthedocs.io/en/4.6/introduction/about-schema/) (for some repositories, this is the only allowable object type), although many resource types can be queried at once. The same is true of the accessory Crossref script; Crossref [explicitly recommends using 'dataset' for non-datasets](https://www.crossref.org/documentation/schema-library/markup-guide-record-types/datasets/) if another label is not available or more appropriate. It is a given that most of these Crossref objects do not meet the criteria for 'data' proper, in part or in whole, and may include other materials like appendices or software; the present workflow does not attempt to make inferences on the precise nature of content (although this is planned). Conversely, some deposits that do constitute 'data' proper are labeled as another object type (e.g., 'Component,' 'Text'), and these are not presently detected. Retrieving objects through the DataCite API requires downstream processing, as some objects that labeled as 'datasets' are either individual files within a DOI-backed deposit (common to Dataverse installations) or are versions of the same deposit ([Zenodo, which mints a parent DOI and then a separate DOI for each version](https://zenodo.org/help/versioning)). The primary script omits individual files that are part of a larger project and restricts the Zenodo deposits to a single record per 'lineage' of deposits. 
 
 ### Distinctiveness of deposits
 There are additional considerations to keep in mind related to how research organize materials within a single project. In some instances, distinct deposits with separate DOIs may in fact be part of the same project (e.g., associated with a single manuscript), and some calculations might wish to further consolidate these to attempt to capture the number of 'unique projects' with at least one dataset. For example, Dataverse has the relatively unique '[dataverse](https://guides.dataverse.org/en/latest/user/dataverse-management.html)' object, a non-DOI-backed structure in which other dataverses and DOI-backed datasets can be nested. For this reason, some researchers will separate the materials for a single manuscript along some logical delineation (e.g., by data format; data vs. software) into multiple DOI-backed deposits that are housed within a single dataverse ([example in the Texas Data Repository](https://dataverse.tdl.org/dataverse/DMD-MLA-01)), whereas if those materials had been deposited in a different repository without an equivalent higher-level structure, they might have been deposited together in one PID-backed deposit. 
@@ -181,8 +181,10 @@ If you have any questions or comments that don't warrant creating an issue, feel
 ## Contributions
 A previous version added a *CONTRIBUTING.md* file that has been temporarily removed after internal discussion about university policies on distributing open source software. The gist is that there are still some policy details to be sorted out (not just for this project) with our technology transfer office, so we're unable to accept external pull requests at the moment (this does not affect others' ability to fork and modify the repository). We hope this will get clarity in the near future so that it can be opened up. In the interim, if you have ideas of how to improve something (excluding aesthetics), feel free to reach out by email or make an issue.
 
-## Version notes (new 2.0.0)
+## Version notes (new 2.1.0)
 The current version scheme follows a MAJOR.MINOR.PATCH format, with a 'major' change involving added functionality or significant revisions to the workflow; a 'minor' change involving addition of accessory files or minor revisions to the workflow (e.g., refactoring); and a 'patch' is a bug fix. We plan to make formal releases synced with a DOI-backed deposit and will reset the version at that point.
+
+Version **2.1.0** makes minor, mostly non-functional syntax changes for code standardization in the core script and the data visualization script. Some minor bugs (not all found in the previous version) were fixed. Some metadata fields were added or modified in the output files, and additional cleaning steps have been added for UT-specific records. Logging capacity has now been introduced.
 
 Version **2.0.0** is identical to version **1.2.1** and is only labeled as such for alignment with Zenodo releases (i.e. it is considered a major change from the initial release that was ported to Zenodo).
 
