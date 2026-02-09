@@ -1,46 +1,51 @@
 from bs4 import BeautifulSoup
 from datetime import datetime
 import json
-import math
-import numpy as np
 import os
 import pandas as pd
 import re
 import requests
+import sys
+
+#call functions from parent utils.py file
+utils_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, utils_dir) 
+from utils import retrieve_openalex 
+
+#read in config file
+parent = os.path.abspath(os.path.join(os.getcwd(), '..'))
+with open(f'{parent}/config.json', 'r') as file:
+    config = json.load(file)
 
 #operator for quick test runs
-test = False
+test = config['TOGGLES']['test']
 #setting timestamp to calculate run time
 startTime = datetime.now() 
 #creating variable with current date for appending to filenames
 todayDate = datetime.now().strftime('%Y%m%d') 
-
-#read in config file
-with open('config.json', 'r') as file:
-    config = json.load(file)
 
 #pull in ROR ID
 ror_id = config['INSTITUTION']['ror']
 
 #creating directories
 if test:
-    if os.path.isdir("test"):
-        print("test directory found - no need to recreate")
+    if os.path.isdir('test'):
+        print('test directory found - no need to recreate')
     else:
-        os.mkdir("test")
-        print("test directory has been created")
+        os.mkdir('test')
+        print('test directory has been created')
     os.chdir('test')
-    if os.path.isdir("outputs"):
-        print("test outputs directory found - no need to recreate")
+    if os.path.isdir('accessory-outputs'):
+        print('test accessory-outputs directory found - no need to recreate')
     else:
-        os.mkdir("outputs")
-        print("test outputs directory has been created")
+        os.mkdir('accessory-outputs')
+        print('test accessory-outputs directory has been created')
 else:
-    if os.path.isdir("outputs"):
-        print("outputs directory found - no need to recreate")
+    if os.path.isdir('accessory-outputs'):
+        print('accessory-outputs directory found - no need to recreate')
     else:
-        os.mkdir("outputs")
-        print("outputs directory has been created")
+        os.mkdir('accessory-outputs')
+        print('accessory-outputs directory has been created')
 
 url_openalex = 'https://api.openalex.org/works'
 
@@ -54,62 +59,7 @@ j = 0
 #define different number of pages to retrieve from OpenAlex API based on 'test' vs. 'prod' env
 page_limit_openalex = config['VARIABLES']['PAGE_LIMITS']['openalex_test'] if test else config['VARIABLES']['PAGE_LIMITS']['openalex_prod']
 
-##retrieves single page of results
-def retrieve_page_openalex(url, params=None):
-    try:
-        response = requests.get(url, params=params)
-        response.raise_for_status()  
-        return response.json()
-    except requests.RequestException as e:
-        print(f"Error retrieveing page: {e}")
-        return {'results': [], 'meta':{}}
-##recursively retrieves pages
-def retrieve_all_data_openalex(url, params):
-    global j
-    all_data_openalex = []
-    data = retrieve_page_openalex(url, params)
-    params = params_openalex.copy()
-    params['cursor'] = '*'
-    next_cursor = '*'
-    previous_cursor = None
-    
-    if not data['results']:
-        print("No data found.")
-        return all_data_openalex
-
-    all_data_openalex.extend(data['results'])
-    
-    total_count = data.get('meta', {}).get('count', None)
-    per = data.get('meta', {}).get('per_page', None)
-    total_pages = math.ceil(total_count/per) + 1
-
-    print(f"Total: {total_count} entries over {total_pages} pages")
-    print()
-
-    while j < page_limit_openalex:
-        j += 1
-        print(f"Retrieving page {j} of {total_pages} from OpenAlex...")
-        print()
-        data = retrieve_page_openalex(url, params)
-        next_cursor = data.get('meta', {}).get('next_cursor', None)
-
-        if next_cursor == previous_cursor:
-            print("Cursor did not change. Ending loop to avoid infinite loop.")
-            break
-        
-        if not data['results']:
-            print("End of OpenAlex response.")
-            print()
-            break
-        
-        all_data_openalex.extend(data['results'])
-        
-        previous_cursor = next_cursor
-        params['cursor'] = next_cursor
-    
-    return all_data_openalex
-
-openalex = retrieve_all_data_openalex(url_openalex, params_openalex)
+openalex = retrieve_openalex(url_openalex, params_openalex, page_limit_openalex)
 data_select_openalex = []
 for item in openalex:
     doi = item.get('doi')
@@ -153,12 +103,12 @@ for doi in df_openalex['doi_article']:
         #send GET request
         response = requests.get(doi)
         response.raise_for_status()
-        print(f"Retrieving information for {doi}")
+        print(f'Retrieving information for {doi}')
         
         #parse HTML
         soup = BeautifulSoup(response.content, 'html.parser')
         
-        #find all divs with the class "supplementary-material"
+        #find all divs with the class 'supplementary-material'
         supplementary_materials = soup.find_all('div', class_='supplementary-material')
         
         #loop through each supplementary material div and extract the relevant information
@@ -190,16 +140,16 @@ for doi in df_openalex['doi_article']:
             all_articles.append(doi)
     
     except requests.RequestException as e:
-        print(f"Error retrieving page for DOI {doi}: {e}")
+        print(f'Error retrieving page for DOI {doi}: {e}')
     except AttributeError as e:
-        print(f"Error parsing HTML for DOI {doi}: {e}")
+        print(f'Error parsing HTML for DOI {doi}: {e}')
 
 data = {
-    "title": all_files,
-    "description": all_descriptions,
-    "doi": all_urls,
-    "format": all_formats,
-    "article": all_articles
+    'title': all_files,
+    'description': all_descriptions,
+    'doi': all_urls,
+    'format': all_formats,
+    'article': all_articles
 }
 
 df_supplementary_materials = pd.DataFrame(data)
@@ -221,7 +171,7 @@ def generic_classification(row):
 
 df_supplementary_materials['genericResourceType'] = df_supplementary_materials.apply(generic_classification, axis=1)
 df_supplementary_materials_dedup = df_supplementary_materials.drop_duplicates(subset='doi', keep='first')
-df_supplementary_materials_dedup.to_csv(f"accessory-outputs/{todayDate}_plos_extracted_SI_metadata.csv", index=False)
+df_supplementary_materials_dedup.to_csv(f'accessory-outputs/{todayDate}_plos_extracted_SI_metadata.csv', index=False)
 
 print('Done.\n')
 print(f'Time to run: {datetime.now() - startTime}')

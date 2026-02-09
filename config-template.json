@@ -4,33 +4,37 @@
         "dataverseToken": ""
     },
     "TOGGLES":{
-        "test": true,
-        "resourceTypeFilter": true,
-        "figshareResourceTypeFilter": true,
-        "crossValidate": false,
-        "dataverse": false,
-        "dataverseDuplicates": false,
+        "test": false,
+        "resource_type_filter": true,
+        "figshare_resource_type_filter": true,
+        "cross_validate": true,
+        "dataverse": true,
+        "dataverse_duplicates": false,
         "austin": true,
-        "figshareWorkflow1": false,
-        "figshareWorkflow2": false,
-        "figshareVersions": false,
-        "figshareWorkflow2Indexer": "OpenAlex",
-        "loadPreviousData": false,
-        "loadPreviousDataPlus": false,
-        "ncbiWorkflow": false,
+        "figshare_workflow_1": true,
+        "figshare_workflow_2": false,
+        "figshare_versions": false,
+        "figshare_workflow_2_indexer": "OpenAlex",
+        "load_previous_data": false,
+        "load_previous_data_plus": false,
+        "ncbi_workflow": true,
         "biopython": true,
-        "loadNCBIdata": false,
-        "loadPreviousDataPlusNCBI": false,
-        "loadCrossrefData": false                        
+        "load_ncbi_data": false,
+        "load_previous_data_plus_ncbi": false,
+        "load_crossref": true                        
     },
     "EMAIL": {
         "user_email": ""
     },
     "INSTITUTION":{
+        "'affiliated": true,
         "name": "University of Texas at Austin",
         "uniqueIdentifier": "Austin",
         "ror": "https://ror.org/00hj54h04",
-        "filename": "ut-austin"
+        "filename": "ut-austin",
+        "ror_affiliation": true,
+        "exact_affiliation": false,
+        "wildcard_affiliation": false
     },
     "PERMUTATIONS": [
         "The University of Texas at Austin",

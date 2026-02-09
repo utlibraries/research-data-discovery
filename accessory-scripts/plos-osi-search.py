@@ -4,14 +4,15 @@ import json
 import math
 import numpy as np
 import os
+import re
 import zipfile
 from datetime import datetime
 from pathlib import Path
 
 #setting timestamp at start of script to calculate run time
-startTime = datetime.now() 
+start_time = datetime.now() 
 #creating variable with current date for appending to filenames
-todayDate = datetime.now().strftime("%Y%m%d") 
+today_date = datetime.now().strftime("%Y%m%d") 
 
 #read in config file
 parent = os.path.abspath(os.path.join(os.getcwd(), '..'))
@@ -33,8 +34,8 @@ else:
 
 #read in PLOS OSI data
 ##code from Figshare: https://help.figshare.com/article/how-to-use-the-figshare-api 
-##current version: https://doi.org/10.6084/m9.figshare.21687686.v9 
-print("Retrieving version 9 of PLOS OSI dataset\n")
+##current version: https://doi.org/10.6084/m9.figshare.21687686.v10 
+print("Retrieving version 10 of PLOS OSI dataset\n")
 item_id = 21687686
 figshare_url = 'https://api.figshare.com/v2'
 
@@ -56,22 +57,32 @@ for k in file_info:
 zip_file_directory = f'inputs/{item_id}'
 target_directory = 'inputs'
 
-#looking for primary directory
-zip_file_path = None
+zip_files = []
+version_pattern = re.compile(r'PLOS-OSI-Dataset_v(\d+)')
+
 for file_name in os.listdir(zip_file_directory):
-    if 'PLOS-OSI-Dataset' in file_name:
-        zip_file_path = os.path.join(zip_file_directory, file_name)
-        break
+    match = version_pattern.search(file_name)
+    if match:
+        version = int(match.group(1))
+        zip_files.append((version, file_name))
+
+#looking for primary directory, find most recent version
+if zip_files:
+    zip_files.sort(reverse=True) 
+    latest_version, latest_zip_file = zip_files[0]
+    zip_file_path = os.path.join(zip_file_directory, latest_zip_file)
+    print(f"Using latest dataset version: v{latest_version} ({latest_zip_file})")
+else:
+    zip_file_path = None
+    print("No matching zip archive found.")
 
 #retrieving specific CSV file
 if zip_file_path:
     with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
         for file in zip_ref.namelist():
-            if 'Main Data Files/PLOS-Dataset' in file and file.endswith('.csv'):
+            if 'Data Files/PLOS-Dataset' in file and file.endswith('.csv'):
                 extracted_file_path = os.path.join(target_directory, os.path.basename(file))
-                # Check if the file already exists before extracting
                 if not os.path.exists(extracted_file_path):
-                    # Extract the specific file directly to the target directory
                     with zip_ref.open(file) as source, open(extracted_file_path, 'wb') as target:
                         target.write(source.read())
                     print(f"Extracted {extracted_file_path}")
@@ -80,7 +91,7 @@ if zip_file_path:
 else:
     print("No matching zip archive found.")
 
-csv_file_directory = "inputs"
+csv_file_directory = target_directory
 csv_files = sorted([f for f in os.listdir(csv_file_directory) if f.endswith('.csv')], reverse=True)
 
 if csv_files:
@@ -172,7 +183,7 @@ openalex_plos_SI['Matched'] = np.where(openalex_plos_SI['Publication_Day'].isnul
 ##constructs hypothetical S1 file DOI link that could be queried further if desired (code not included here)
 openalex_plos_SI_matched = openalex_plos_SI[openalex_plos_SI['Matched'] == "Matched"]
 openalex_plos_SI_matched['hypothetical_deposit'] = openalex_plos_SI_matched['DOI'] + '.s001'
-openalex_plos_SI_matched.to_csv(f'accessory-outputs/{todayDate}_PLOS-articles-with-data-in-SI.csv', index=False, sep=",")
+openalex_plos_SI_matched.to_csv(f'accessory-outputs/{today_date}_PLOS-articles-with-data-in-SI.csv', index=False, sep=",")
 print(f'Number of relevant PLOS articles with data location listed as Supp Info: {len(openalex_plos_SI_matched)}\n')
 
 #merge PLOS articles with NCBI data into university-affiliated OpenAlex
@@ -181,8 +192,8 @@ openalex_plos_NCBI = pd.merge(df_openalex_pruned, df_NCBI, on='DOI', how="left")
 openalex_plos_NCBI['Matched'] = np.where(openalex_plos_NCBI['Publication_Day'].isnull(), 'Not matched', 'Matched')
 ##constructs hypothetical S1 file DOI link that could be queried further if desired (code not included here)
 openalex_plos_NCBI_matched = openalex_plos_NCBI[openalex_plos_NCBI['Matched'] == "Matched"]
-openalex_plos_NCBI_matched.to_csv(f'accessory-outputs/{todayDate}_PLOS-articles-with-data-in-NCBI.csv', index=False, sep=",")
+openalex_plos_NCBI_matched.to_csv(f'accessory-outputs/{today_date}_PLOS-articles-with-data-in-NCBI.csv', index=False, sep=",")
 print(f'Number of relevant PLOS articles with data location listed as NCBI: {len(openalex_plos_NCBI_matched)}\n')
 
-print(f"Time to run: {datetime.now() - startTime}")
+print(f"Time to run: {datetime.now() - start_time}")
 print("Done.")
