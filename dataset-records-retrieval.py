@@ -1,10 +1,10 @@
 from datetime import datetime
 from pprint import pformat
 from rapidfuzz import process, fuzz
-from urllib.parse import urlparse, parse_qs, quote
+from urllib.parse import quote
+from utils import adjust_descriptive_count, check_link, count_words, determine_affiliation, retrieve_all_journals, retrieve_crossref, retrieve_datacite, retrieve_dataverse, retrieve_dryad, retrieve_openalex, retrieve_zenodo #custom functions file
 import pandas as pd
 import json
-import math
 import numpy as np
 import os
 import re
@@ -18,7 +18,7 @@ with open('config.json', 'r') as file:
 #operator for quick test runs
 test = config['TOGGLES']['test']
 
-#operator for resource type(s) to query for (use OR and put in parentheses for multiple types)
+#operator for resource types to query for (use OR and put in parentheses for multiple types)
 ##GENERAL DataCite query
 resource_types = ['Dataset', 'Software']
 # Datacite format
@@ -124,7 +124,7 @@ if test:
         print('logs directory found - no need to recreate')
     else:
         os.mkdir('logs')
-        print('logs directory has been created')
+        print('test logs directory has been created')
 else:
     if os.path.isdir('outputs'):
         print('outputs directory found - no need to recreate')
@@ -162,26 +162,42 @@ url_crossref_issn = 'https://api.crossref.org/journals/{issn}/works'
 url_dryad = f'https://datadryad.org/api/v2/search?affiliation={ror_id}' #Dryad requires ROR for affiliation search
 url_datacite = 'https://api.datacite.org/dois'
 url_dataverse = 'https://dataverse.tdl.org/api/search/'
-url_figshare = 'https://api.figshare.com/v2/articles/{id}/files?page_size=10'
 url_openalex = 'https://api.openalex.org/works?'
 url_zenodo = 'https://zenodo.org/api/records'
 
+##per page
+per_page_datacite = config['VARIABLES']['PAGE_SIZES']['datacite']
+per_page_dryad = config['VARIABLES']['PAGE_SIZES']['dryad']
+per_page_dataverse = config['VARIABLES']['PAGE_SIZES']['dataverse']
+per_page_zenodo = config['VARIABLES']['PAGE_SIZES']['zenodo']
+
+##page start
+page_start_dryad = config['VARIABLES']['PAGE_STARTS']['dryad']
+page_start_dataverse = config['VARIABLES']['PAGE_STARTS']['dataverse']
+page_start_datacite = config['VARIABLES']['PAGE_STARTS']['datacite']
+page_start_zenodo = config['VARIABLES']['PAGE_STARTS']['zenodo']
+
+#page count, differ based on 'test' vs. 'prod' env
+page_limit_datacite = config['VARIABLES']['PAGE_LIMITS']['datacite_test'] if test else config['VARIABLES']['PAGE_LIMITS']['datacite_prod']
+page_limit_zenodo = config['VARIABLES']['PAGE_LIMITS']['zenodo_test'] if test else config['VARIABLES']['PAGE_LIMITS']['zenodo_prod']
+page_limit_openalex = config['VARIABLES']['PAGE_LIMITS']['openalex_test'] if test else config['VARIABLES']['PAGE_LIMITS']['openalex_prod']
+
 params_dryad= {
-    'per_page': config['VARIABLES']['PAGE_SIZES']['dryad'],
+    'per_page': per_page_dryad,
 }
 
 if resource_type_filter:
     params_datacite = {
         'affiliation': 'true',
         'query': f'(creators.affiliation.name:({institution_query}) OR creators.name:({institution_query}) OR contributors.affiliation.name:({institution_query}) OR contributors.name:({institution_query})) AND types.resourceTypeGeneral:{datacite_resource_type}',
-        'page[size]': config['VARIABLES']['PAGE_SIZES']['datacite'],
+        'page[size]': per_page_datacite,
         'page[cursor]': 1,
     }
 else:
     params_datacite = {
         'affiliation': 'true',
         'query': f'(creators.affiliation.name:({institution_query}) OR creators.name:({institution_query}) OR contributors.affiliation.name:({institution_query}) OR contributors.name:({institution_query}))',
-        'page[size]': config['VARIABLES']['PAGE_SIZES']['datacite'],
+        'page[size]': per_page_datacite,
         'page[cursor]': 1,
     }
 
@@ -193,26 +209,16 @@ params_dataverse = {
     #UT Austin dataverse, may contain non-UT affiliated objects, and UT-affiliated objects may be in other TDR installations
     #'subtree': 'utexas', 
     'type': 'dataset', #dataverse may also mint DOIs for files
-    'start': config['VARIABLES']['PAGE_STARTS']['dataverse'],
+    'start': page_start_dataverse,
     'page': config['VARIABLES']['PAGE_INCREMENTS']['dataverse'],
-    'per_page': config['VARIABLES']['PAGE_SIZES']['dataverse']
+    'per_page': per_page_dataverse
 }
 
 params_zenodo = {
     'q': f'(creators.affiliation:({institution_query_small}) OR creators.name:({institution_query_small}) OR contributors.affiliation:({institution_query_small}) OR contributors.name:({institution_query_small})) AND {zenodo_resource_type}',
-    'size': config['VARIABLES']['PAGE_SIZES']['zenodo'],
+    'size': per_page_zenodo,
     'access_token': config['KEYS']['zenodoToken']
 }
-
-#define different number of pages to retrieve from DataCite API based on 'test' vs. 'prod' env
-page_limit_datacite = config['VARIABLES']['PAGE_LIMITS']['datacite_test'] if test else config['VARIABLES']['PAGE_LIMITS']['datacite_prod']
-page_limit_zenodo = config['VARIABLES']['PAGE_LIMITS']['zenodo_test'] if test else config['VARIABLES']['PAGE_LIMITS']['zenodo_prod']
-page_limit_openalex = config['VARIABLES']['PAGE_LIMITS']['openalex_test'] if test else config['VARIABLES']['PAGE_LIMITS']['openalex_prod']
-
-#define variables to be called recursively in function
-page_start_datacite = config['VARIABLES']['PAGE_STARTS']['datacite']
-page_start_zenodo = config['VARIABLES']['PAGE_STARTS']['zenodo']
-page_size_zenodo = config['VARIABLES']['PAGE_SIZES']['zenodo']
 
 #defining some metadata assessment objects
 ##assess 'descriptiveness of dataset title'
@@ -232,342 +238,26 @@ nondescriptive_words = set(
     numbers
 )
 ##software formats
-softwareFormats = set(config['SOFTWARE_FORMATS'].values())
+software_formats = set(config['SOFTWARE_FORMATS'].values())
 ##convert mimeType to readable format
 format_map = config['FORMAT_MAP']
 
-#define global functions
-##retrieves single page of results
-def retrieve_page_dryad(url, params):
-    try:
-        response = requests.get(url, params=params)
-        response.raise_for_status()  
-        return response.json()
-    except requests.RequestException as e:
-        print(f'Error retrieving page: {e}')
-        return {'_embedded': {'stash:datasets': []}, 'total': {}}
-##recursively retrieves pages
-def retrieve_all_data_dryad(url, params):
-    page_start_dryad = config['VARIABLES']['PAGE_STARTS']['dryad']
-    all_data_dryad = []
-    data = retrieve_page_dryad(url, params)
-    total_count = data.get('total', None)
-    total_pages = math.ceil(total_count/params_dryad['per_page'])
-
-    print(f'Total: {total_count} entries over {total_pages} pages\n')
-
-    while True:
-        params.update({'page': page_start_dryad})  
-        print(f'Retrieving page {page_start_dryad} of {total_pages} from Dryad...\n')  
-
-        data = retrieve_page_dryad(url, params)
-        
-        if not data['_embedded']:
-            print('No data found.')
-            return all_data_dryad
-        
-        all_data_dryad.extend(data['_embedded']['stash:datasets'])
-        
-        page_start_dryad += 1
-
-        if not data['_embedded']['stash:datasets']:
-            print('End of Dryad response.\n')          
-            break
-    
-    return all_data_dryad
-
-##retrieves single page of results
-def retrieve_page_datacite(url, params=None):
-    try:
-        response = requests.get(url, params=params)
-        response.raise_for_status()  
-        return response.json()
-    except requests.RequestException as e:
-        print(f'Error retrieving page: {e}')
-        return {'data': [], 'links': {}}
-##recursively retrieves pages
-def retrieve_all_data_datacite(url, params):
-    global page_start_datacite
-    all_data_datacite = []
-    data = retrieve_page_datacite(url, params)
-    
-    if not data['data']:
-        print('No data found.')
-        return all_data_datacite
-
-    all_data_datacite.extend(data['data'])
-
-    total_count = data.get('meta', {}).get('total', None)
-    total_pages = math.ceil(total_count/config['VARIABLES']['PAGE_SIZES']['datacite'])
-
-    current_url = data.get('links', {}).get('next', None)
-    
-    while current_url and page_start_datacite < page_limit_datacite:
-        page_start_datacite+=1
-        print(f'Retrieving page {page_start_datacite} of {total_pages} from DataCite...\n')
-        data = retrieve_page_datacite(current_url)
-        
-        if not data['data']:
-            print('End of response.')
-            break
-        
-        all_data_datacite.extend(data['data'])
-        
-        current_url = data.get('links', {}).get('next', None)
-    
-    return all_data_datacite
-
-##retrieves single page of results
-def retrieve_page_dataverse(url, params=None, headers=None):
-    try:
-        response = requests.get(url, params=params, headers=headers)
-        response.raise_for_status() 
-        return response.json()
-    except requests.RequestException as e:
-        print(f'Error retrieving page: {e}')
-        return {'data': {'items': [], 'total_count': 0}}
-##recursively retrieves pages
-def retrieve_all_data_dataverse(url, params, headers):
-    all_data_dataverse = []
-
-    while True: 
-        data = retrieve_page_dataverse(url, params, headers)  
-        total_count = data['data']['total_count']
-        total_pages = math.ceil(total_count/params_dataverse['per_page'])
-        print(f'Retrieving page {params_dataverse['page']} of {total_pages} pages...\n')
-
-        if not data['data']:
-            print('No data found.')
-            break
-    
-        all_data_dataverse.extend(data['data']['items'])
-        
-        params_dataverse['start'] += params_dataverse['per_page']
-        params_dataverse['page'] += 1
-        
-        if params_dataverse['start'] >= total_count:
-            print('End of response.')
-            break
-
-    return all_data_dataverse
-
-##retrieves single page of results
-def retrieve_page_zenodo(url, params=None):
-    try:
-        response = requests.get(url, params=params, timeout=30)
-        response.raise_for_status()  
-        return response.json()
-    except requests.RequestException as e:
-        print(f'Error retrieving page: {e}')
-        return {'hits': {'hits': [], 'total':{}}, 'links': {}}
-##extracting the 'page' parameter value
-def extract_page_number(url):
-    parsed_url = urlparse(url)
-    query_params = parse_qs(parsed_url.query)
-    return query_params.get('page', [None])[0]  
-##recursively retrieves pages
-def retrieve_all_data_zenodo(url, params):
-    page_start_zenodo = config['VARIABLES']['PAGE_STARTS']['zenodo']
-    all_data_zenodo = []
-    data = retrieve_page_zenodo(url, params)
-    
-    if not data['hits']['hits']:
-        print('No data found.')
-        return all_data_zenodo
-
-    all_data_zenodo.extend(data['hits']['hits'])
-    
-    current_url = data.get('links', {}).get('self', None)
-    total_count = data.get('hits', {}).get('total',None)
-    total_pages = math.ceil(total_count/config['VARIABLES']['PAGE_SIZES']['zenodo'])
-    print(f'Total: {total_count} entries over {total_pages} pages\n')
-    
-    while current_url and page_start_zenodo < page_limit_zenodo:
-        page_start_zenodo+=1
-        page_number = extract_page_number(current_url)
-        print(f'Retrieving page {page_start_zenodo} of {total_pages} from Zenodo...\n')
-        data = retrieve_page_zenodo(current_url)
-        if not data['hits']['hits']:
-            print('End of Zenodo response.\n')
-            break
-        
-        all_data_zenodo.extend(data['hits']['hits'])
-        current_url = data.get('links', {}).get('next', None)
-    
-    return all_data_zenodo
-
-##retrieves single page of results
-def retrieve_page_openalex(url, params=None):
-    try:
-        response = requests.get(url, params=params)
-        response.raise_for_status()  
-        return response.json()
-    except requests.RequestException as e:
-        print(f'Error retrieving page: {e}')
-        return {'results': [], 'meta':{}}
-##recursively retrieves pages
-def retrieve_all_data_openalex(url, params):
-    global j
-    all_data_openalex = []
-    data = retrieve_page_openalex(url, params)
-    params = params_openalex.copy()
-    params['cursor'] = '*'
-    next_cursor = '*'
-    previous_cursor = None
-    
-    if not data['results']:
-        print('No data found.')
-        return all_data_openalex
-
-    all_data_openalex.extend(data['results'])
-    
-    total_count = data.get('meta', {}).get('count', None)
-    per = data.get('meta', {}).get('per_page', None)
-    total_pages = math.ceil(total_count/per) + 1
-
-    print(f'Total: {total_count} entries over {total_pages} pages')
-    print()
-
-    while j < page_limit_openalex:
-        j += 1
-        print(f'Retrieving page {j} of {total_pages} from OpenAlex...')
-        print()
-        data = retrieve_page_openalex(url, params)
-        next_cursor = data.get('meta', {}).get('next_cursor', None)
-
-        if next_cursor == previous_cursor:
-            print('Cursor did not change. Ending loop to avoid infinite loop.')
-            break
-        
-        if not data['results']:
-            print('End of OpenAlex response.')
-            print()
-            break
-        
-        all_data_openalex.extend(data['results'])
-        
-        previous_cursor = next_cursor
-        params['cursor'] = next_cursor
-    
-    return all_data_openalex
-
-##retrieves single page of results
-def retrieve_page_crossref(url, params=None):
-    try:
-        response = requests.get(url, params=params)
-        response.raise_for_status()  
-        return response.json()
-    except requests.RequestException as e:
-        print(f'Error retrieving page: {e}')
-        return {'message': {'items': [], 'total-results':{}}}
-##recursively retrieves pages
-def retrieve_all_data_crossref(url, params):
-    global k
-
-    all_data_crossref = []
-    data = retrieve_page_crossref(url, params)
-    params = params_crossref_journal.copy()
-    params['cursor'] = '*'
-    next_cursor = '*'
-    previous_cursor = None
-    
-    if not data['message']['items']:
-        print('No data found.')
-        return all_data_crossref
-
-    all_data_crossref.extend(data['message']['items'])
-    
-    while k < page_limit_crossref:
-        k += 1
-        print(f'Retrieving page {k} from CrossRef...')
-        print()
-
-        data = retrieve_page_crossref(url, params)
-        next_cursor = data.get('message', {}).get('next-cursor', None)
-        
-        if not data['message']['items']:
-            print('Finished this journal.')
-            print()
-            break
-        
-        all_data_crossref.extend(data['message']['items'])
-        
-        previous_cursor = next_cursor
-        params['cursor'] = next_cursor
-    
-    return all_data_crossref
-
-#determines which author (first vs. last or both) is affiliated
-def determine_affiliation(row):
-    if row['first_author'] == row['last_author']:
-        return 'single author'
-
-    first_affiliated = any(variation in (row['first_affiliation'] or '') for variation in ut_variations)
-    last_affiliated = any(variation in (row['last_affiliation'] or '') for variation in ut_variations)
-
-    if first_affiliated and last_affiliated:
-        return 'both lead and senior'
-    elif first_affiliated and not last_affiliated:
-        return 'only lead'
-    elif last_affiliated and not first_affiliated:
-        return 'only senior'
-    else:
-        return 'neither lead nor senior'
-
-#recursively retrieves specified journals in Crossref API
-def retrieve_all_journals(url_template, journal_list):
-    all_data = []  
-
-    for journal_name, issn in journal_list.items():
-        print(f'Retrieving data from {journal_name} (ISSN: {issn})')
-        custom_url = url_template.format(issn=issn)
-        params = params_crossref_journal.copy()
-        params['filter'] += f',issn:{issn}'
-        
-        journal_data = retrieve_all_data_crossref(custom_url, params)
-        all_data.extend(journal_data)
-
-    return all_data
-
-#checks if hypothetical DOI exists
-def check_link(doi):
-    url = f'https://doi.org/{doi}'
-    response = requests.head(url, allow_redirects=True)
-    return response.status_code == 200
-
-#function to count descriptive words
-def count_words(text):
-    words = text.split()
-    total_words = len(words)
-    descriptive_count = sum(1 for word in words if word not in nondescriptive_words)
-    return total_words, descriptive_count
-
-## account for when a single word may or may not be descriptive but is certainly uninformative if in a certain combination
-def adjust_descriptive_count(row):
-    if ('supplemental material' in row['title_reformatted'].lower() or
-            'supplementary material' in row['title_reformatted'].lower() or
-            'supplementary materials' in row['title_reformatted'].lower() or
-            'supplemental materials' in row['title_reformatted'].lower()):
-        return max(0, row['descriptive_word_count_title'] - 1)
-    return row['descriptive_word_count_title']
-
-####################
-
+# Running script
 if not load_previous_data and not load_previous_data_plus and not load_previous_data_plus_ncbi:
     print('Starting DataCite retrieval based on affiliation.\n')
-    data_datacite = retrieve_all_data_datacite(url_datacite, params_datacite)
+    data_datacite = retrieve_datacite(url_datacite, params_datacite, page_start_datacite, page_limit_datacite, per_page_datacite)
     print(f'Number of datasets found by DataCite API: {len(data_datacite)}\n')
 
     if cross_validate:
         print('Starting Dryad retrieval.\n')
-        data_dryad = retrieve_all_data_dryad(url_dryad, params_dryad)
+        data_dryad = retrieve_dryad(url_dryad, params_dryad, page_start_dryad, per_page_dryad)
         print(f'Number of Dryad datasets found by Dryad API: {len(data_dryad)}\n')
         if dataverse:
             print('Starting Dataverse retrieval.\n')
-            data_dataverse = retrieve_all_data_dataverse(url_dataverse, params_dataverse, headers_dataverse)
+            data_dataverse = retrieve_dataverse(url_dataverse, params_dataverse, headers_dataverse, page_start_dataverse, per_page_dataverse)
             print(f'Number of Dataverse datasets found by Dataverse API: {len(data_dataverse)}\n')
         print('Starting Zenodo retrieval.\n')
-        data_zenodo = retrieve_all_data_zenodo(url_zenodo, params_zenodo)
+        data_zenodo = retrieve_zenodo(url_zenodo, params_zenodo, page_start_zenodo, page_limit_zenodo, per_page_zenodo)
         print(f'Number of Zenodo datasets found by Zenodo API: {len(data_zenodo)}\n')
 
     print('Beginning dataframe generation.\n')
@@ -588,10 +278,6 @@ if not load_previous_data and not load_previous_data_plus and not load_previous_
         title = attributes.get('titles', [{}])[0].get('title', '')
         creators = attributes.get('creators', [{}])
         creators_names = [creator.get('name', '') for creator in creators]
-        contributors_affiliations = [
-            '; '.join(aff.get('name', '') for aff in creator.get('affiliation', []))
-            for creator in creators
-        ]
         creators_formatted = []
         for creator in creators:
             name = creator.get('name', '').strip()
@@ -612,13 +298,15 @@ if not load_previous_data and not load_previous_data_plus and not load_previous_
             for aff in (creator.get('affiliation') if isinstance(creator.get('affiliation'), list) else [])
             if isinstance(aff, dict)
         ]
-        first_affiliation = contributors_affiliations[0] if contributors_affiliations else None
-        last_affiliation = contributors_affiliations[-1] if contributors_affiliations else None
+        first_affiliation = creators_affiliations[0] if creators_affiliations else None
+        last_affiliation = creators_affiliations[-1] if creators_affiliations else None
         contributors = attributes.get('contributors', [{}])
         contributors_names = [contributor.get('name', '') for contributor in contributors]
         contributors_affiliations = [
-            '; '.join(aff.get('name', '') for aff in contributor.get('affiliation', []))
+            aff.get('name', '')
             for contributor in contributors
+            for aff in (contributor.get('affiliation') if isinstance(contributor.get('affiliation'), list) else [])
+            if isinstance(aff, dict)
         ]
         contributors_formatted = []
         for contributor in contributors:
@@ -991,7 +679,7 @@ if not load_previous_data and not load_previous_data_plus and not load_previous_
         datasets = data_datacite_new.get('datasets', []) 
         for item in datasets:
             data = item.get('data', {})
-            attributes = data.get('attributes', {})
+            attributes = item.get('attributes', {})
             doi = attributes.get('doi', None)
             state = attributes.get('state', None)
             publisher = attributes.get('publisher', '')
@@ -1005,7 +693,10 @@ if not load_previous_data and not load_previous_data_plus and not load_previous_
             title = attributes.get('titles', [{}])[0].get('title', '')
             creators = attributes.get('creators', [{}])
             creators_names = [creator.get('name', '') for creator in creators]
-            contributors_affiliations = ['; '.join(creator.get('affiliation', [])) for creator in creators]
+            contributors_affiliations = [
+                '; '.join(aff.get('name', '') for aff in creator.get('affiliation', []))
+                for creator in creators
+            ]
             creators_formatted = []
             for creator in creators:
                 name = creator.get('name', '').strip()
@@ -1020,7 +711,7 @@ if not load_previous_data and not load_previous_data_plus and not load_previous_
                 creators_formatted.append(f'{name} ({affil_str})')
             first_creator = creators[0].get('name', None) if creators else None
             last_creator = creators[-1].get('name', None) if creators else None
-            affiliations = [
+            creators_affiliations = [
                 aff.get('name', '')
                 for creator in creators
                 for aff in (creator.get('affiliation') if isinstance(creator.get('affiliation'), list) else [])
@@ -1031,10 +722,8 @@ if not load_previous_data and not load_previous_data_plus and not load_previous_
             contributors = attributes.get('contributors', [{}])
             contributors_names = [contributor.get('name', '') for contributor in contributors]
             contributors_affiliations = [
-                '; '.join(
-                    aff.get('name', aff) if isinstance(aff, dict) else (aff if aff else '')
-                    for aff in contributor.get('affiliation', [])
-                )
+                '; '.join(aff.get('name', '') for aff in contributor.get('affiliation', []))
+                for contributor in contributors
             ]
             contributors_formatted = []
             for contributor in contributors:
@@ -1074,7 +763,7 @@ if not load_previous_data and not load_previous_data_plus and not load_previous_
             views = attributes.get('viewCount', 0)
             downloads = attributes.get('downloadCount', 0)
             citations = attributes.get('citationCount', 0)
-            data_select_datacite_new.append({
+            data_select_datacite.append({
                 'doi': doi,
                 'state': state,
                 'publisher': publisher,
@@ -1087,7 +776,7 @@ if not load_previous_data and not load_previous_data_plus and not load_previous_
                 'first_affiliation': first_affiliation,
                 'last_affiliation': last_affiliation,
                 'creators_names': creators_names,
-                'contributors_affiliations': contributors_affiliations,
+                'creators_affiliations': creators_affiliations,
                 'creators_formatted': creators_formatted,
                 'contributors_names': contributors_names,
                 'contributors_affiliations': contributors_affiliations,
@@ -1119,11 +808,11 @@ if not load_previous_data and not load_previous_data_plus and not load_previous_
     pattern = '|'.join([f'({perm})' for perm in ut_variations])
     #search for permutations in the 'affiliations' column
     df_datacite_all['affiliation_source'] = df_datacite_all.apply(
-    lambda row: 'creator.affiliationName' if pd.Series(row['creators_affiliations']).str.contains(pattern, case=False, na=False).any()
-    else ('creator.name' if pd.Series(row['creators_names']).str.contains(pattern, case=False, na=False).any()
-    else ('contributor.affiliationName' if pd.Series(row['contributors_affiliations']).str.contains(pattern, case=False, na=False).any()
-    else ('contributor.name' if pd.Series(row['contributors_names']).str.contains(pattern, case=False, na=False).any() else None))),
-    axis=1)
+        lambda row: 'creator.affiliationName' if pd.Series(row['creators_affiliations']).str.contains(pattern, case=False, na=False).any()
+            else ('creator.name' if pd.Series(row['creators_names']).str.contains(pattern, case=False, na=False).any()
+            else ('contributor.affiliationName' if pd.Series(row['contributors_affiliations']).str.contains(pattern, case=False, na=False).any()
+            else ('contributor.name' if pd.Series(row['contributors_names']).str.contains(pattern, case=False, na=False).any() else None))),
+        axis=1)
     # pull out the identified permutation and put it into a new column
     df_datacite_all['affiliation_permutation'] = df_datacite_all.apply(
     lambda row:
@@ -1230,10 +919,9 @@ if not load_previous_data and not load_previous_data_plus and not load_previous_
     ###should catch other Dataverse installations' files but exclude aggregated entries
     df_datacite_dedup = df_datacite_dedup[~((df_datacite_dedup['doi'].str.count('/') >= 3) & (df_datacite_dedup['publisher'] != 'figshare') & (~df_datacite_dedup['doi'].str.contains(';')))]
 
-    #handling same granularity in other repositories
-    df_datacite_dedup = df_datacite_dedup[~((df_datacite_dedup['publisher'] == 'AUSSDA') & (df_datacite_dedup['doi'].str.count('/') > 1))]
-    df_datacite_dedup = df_datacite_dedup[~((df_datacite_dedup['publisher'] == 'CUHK Research Data Repository|Qualitative Data Repository') & (df_datacite_dedup['doi'].str.count('/') > 1))]
-
+    #handling same granularity in other repositories where files have more than one (1) '/'
+    target_publishers = ['AUSSDA', 'CUHK Research Data Repository', 'Qualitative Data Repository']
+    df_datacite_dedup = df_datacite_dedup[~((df_datacite_dedup['publisher'].isin(target_publishers)) & (df_datacite_dedup['doi'].str.count('/') > 1))]
     #handling blanket 'affiliation' of UT Austin for all DesignSafe deposits
     ##DesignSafe is a UT-managed repository and this step is unlikely to be signficant for other institutions; there should also be a metadata fix for this forthcoming
     if austin:
@@ -1301,11 +989,11 @@ if not load_previous_data and not load_previous_data_plus and not load_previous_
     #additional metadata assessment steps, fields are also dropped in later steps
     df_datacite['file_format'] = df_datacite['formats'].apply(lambda formats: ('; '.join([format_map.get(fmt, fmt) for fmt in formats])if isinstance(formats, set) else formats))        
     ##look for software file formats
-    df_datacite['contains_code'] = df_datacite['file_format'].apply(lambda x: any(part.strip() in softwareFormats for part in x.split(';')) if isinstance(x, str) else False)
-    df_datacite['only_code'] = df_datacite['file_format'].apply(lambda x: all(part.strip() in softwareFormats for part in x.split(';')) if isinstance(x, str) else False)
+    df_datacite['contains_code'] = df_datacite['file_format'].apply(lambda x: any(part.strip() in software_formats for part in x.split(';')) if isinstance(x, str) else False)
+    df_datacite['only_code'] = df_datacite['file_format'].apply(lambda x: all(part.strip() in software_formats for part in x.split(';')) if isinstance(x, str) else False)
     df_datacite['title_reformatted'] = df_datacite['title'].str.replace('_', ' ') #gets around text linked by underscores counting as 1 word
     df_datacite['title_reformatted'] = df_datacite['title_reformatted'].str.lower()
-    df_datacite[['total_word_count_title', 'descriptive_word_count_title']] = df_datacite['title_reformatted'].apply(lambda x: pd.Series(count_words(x)))
+    df_datacite[['total_word_count_title', 'descriptive_word_count_title']] = (df_datacite['title_reformatted'].apply(lambda x: pd.Series(count_words(x, nondescriptive_words))))
     df_datacite['descriptive_word_count_title'] = df_datacite.apply(adjust_descriptive_count, axis=1)
     df_datacite['nondescriptive_word_count_title'] = df_datacite['total_word_count_title'] - df_datacite['descriptive_word_count_title']
 
@@ -1343,13 +1031,13 @@ if not load_previous_data and not load_previous_data_plus and not load_previous_
     }
 
     df_datacite_pruned['repository2'] = df_datacite_pruned['publisher'].map(repo_mapping).fillna('Other')
-    df_datacite_pruned['uni_lead'] = df_datacite_pruned.apply(determine_affiliation, axis=1)
+    df_datacite_pruned['uni_lead'] = df_datacite_pruned.apply(lambda row: determine_affiliation(row, ut_variations), axis=1)
 
     #standardizing repositories with multiple versions of name in dataframe
     ##different institutions may need to add additional repositories; nothing will happen if you don't have any of the ones listed below and don't comment the lines out
     df_datacite_pruned['publisher'] = df_datacite_pruned['publisher'].fillna('None')
     df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('Digital Rocks', case=False), 'publisher'] = 'Digital Porous Media Portal'
-    df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('Environmental System Science Data Infrastructure for a Virtual Ecosystem', case=False), 'publisher'] = 'ESS-DIVE'
+    df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('Environmental System Science Data Infrastructure for a Virtual Ecosystem|Southeast Texas Urban Integrated Field Laboratory', case=False), 'publisher'] = 'ESS-DIVE'
     df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('Texas Data Repository|Texas Research Data Repository', case=False), 'publisher'] = 'Texas Data Repository'
     df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('ICPSR', case=True), 'publisher'] = 'ICPSR'
     df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('Environmental Molecular Sciences Laboratory', case=True), 'publisher'] = 'Environ Mol Sci Lab'
@@ -1359,8 +1047,11 @@ if not load_previous_data and not load_previous_data_plus and not load_previous_
     df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('Oak Ridge', case=True), 'publisher'] = 'Oak Ridge National Laboratory'
     df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('PARADIM', case=True), 'publisher'] = 'PARADIM'
     df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('4TU', case=True), 'publisher'] = '4TU.ResearchData'
-    df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('Scratchpads', case=True), 'publisher'] = 'Global Biodiversity Information Facility (GBIF)'
+    df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('Scratchpads|Biodiversity Collection|Algae', case=True), 'publisher'] = 'Global Biodiversity Information Facility (GBIF)'
     df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('NCAR', case=True), 'publisher'] = 'NSF NCAR Earth Observing Laboratory'
+    df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('Consortium of Universities for the Advancement of Hydrologic Science, Inc', case=False), 'publisher'] = 'CUAHSI'
+    df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('Bureau of Economic Geology (UT-BEG)', case=False), 'publisher'] = 'AmeriFlux'
+    df_datacite_pruned.loc[df_datacite_pruned['doi'].str.contains('zenodo', case=False), 'publisher'] = 'Zenodo'
 
 
     #EDGE CASES, likely unnecessary for other universities, but you will need to find your own edge cases
@@ -1375,9 +1066,19 @@ if not load_previous_data and not load_previous_data_plus and not load_previous_
     df_datacite_pruned['non_TDR_IR'] = np.where(df_datacite_pruned['publisher'].str.contains('University|UCLA|UNC|Harvard|ASU Library|Dataverse|DaRUS', case=True), 'non-TDR institutional', 'not university or TDR')
     df_datacite_pruned['US_federal'] = np.where(df_datacite_pruned['publisher'].str.contains('NOAA|NIH|NSF|U.S.|DOE|DOD|DOI|National|Designsafe', case=True), 'Federal US repo', 'not federal US repo')
     df_datacite_pruned['GREI'] = np.where(df_datacite_pruned['publisher'].str.contains('Dryad|figshare|Harvard|Zenodo|Vivli|Mendeley|Open Science Framework', case=False), 'GREI member', 'not GREI member')
-    df_datacite_pruned['scope'] = np.where(df_datacite_pruned['publisher'].str.contains('Dryad|figshare|Zenodo|Mendeley|Open Science Framework|4TU|ASU Library|Boise State|Borealis|Dataverse|Oregon|Princeton|University|Wyoming|DaRUS|Texas', case=False), 'Generalist', 'Specialist')
+    generalist_keywords = 'Dryad|figshare|Zenodo|Mendeley|Open Science Framework|Science Data Bank'
+    institutional_keywords = 'ASU Library|Boise State|Borealis|Caltech|CUHK|Dataverse|Oregon|Princeton|University|Wyoming|DaRUS|Texas|Institut Laue-Langevin|Jagiellonian|Hopkins|Purdue|Yale|GRO.data|DR-NTU|CUAHSI'
 
+    df_datacite_pruned['scope'] = df_datacite_pruned['publisher'].apply(
+        lambda x: (
+            'Generalist' if pd.notnull(x) and re.search(generalist_keywords, x, re.IGNORECASE)
+            else 'Institutional' if pd.notnull(x) and re.search(institutional_keywords, x, re.IGNORECASE)
+            else 'Specialist'
+        )
+    )
     df_datacite_pruned = df_datacite_pruned.rename(columns={'publisher': 'repository'})
+
+    #manually reclassifying certain resourceTypes
     conditions = [
         df_datacite_pruned['type'].isin(['Dataset', 'Image', 'PhysicalObject']),
         df_datacite_pruned['type'].isin(['Software', 'ComputationalNotebook']), 
@@ -1411,19 +1112,18 @@ if not load_previous_data and not load_previous_data_plus and not load_previous_
     standardized_names = {}
 
     for name in unique_names:
-    # Only try to match if standardized_names is not empty
         if standardized_names:
             result = process.extractOne(name, standardized_names.keys(), scorer=fuzz.token_sort_ratio)
             if result is not None:
                 match, score, _ = result  # rapidfuzz returns (match, score, index)
-                if score > 90:  # Adjust threshold as needed
+                if score > 90:  # threshold between 0 to 100, with higher numbers being more stringent
                     standardized_names[name] = match
                 else:
                     standardized_names[name] = name
             else:
                 standardized_names[name] = name
         else:
-            standardized_names[name] = name  # First name, nothing to match yet
+            standardized_names[name] = name
 
     df_researchers_pruned['researcher_standardized'] = df_researchers_pruned['researcher'].map(standardized_names)
 
@@ -1506,7 +1206,7 @@ if figshare_workflow_1:
                 }
 
             print(f'Starting DataCite retrieval for {publisher_name}.\n')
-            data_datacite_figshare = retrieve_all_data_datacite(url_datacite, params_datacite_figshare)
+            data_datacite_figshare = retrieve_datacite(url_datacite, params_datacite_figshare, page_start_datacite, page_limit_datacite, per_page_datacite)
             print(f'Number of datasets associated with {publisher_name} found by DataCite API: {len(data_datacite_figshare)}\n')
             
             for item in data_datacite_figshare:
@@ -1649,7 +1349,7 @@ if figshare_workflow_1:
                         'citations': citations
                     })
             print(f'Starting OpenAlex retrieval for {publisher_name}.\n')
-            openalex = retrieve_all_data_openalex(url_openalex, params_openalex)
+            openalex = retrieve_openalex(url_openalex, params_openalex, page_limit_openalex)
             if openalex:
                 print(f'Number of articles associated with {publisher_name} found by OpenAlex API: {len(openalex)}\n')
             else:
@@ -1730,7 +1430,7 @@ if figshare_workflow_1:
 
     new_figshare['title_reformatted'] = new_figshare['title'].str.replace('_', ' ') #gets around text linked by underscores counting as 1 word
     new_figshare['title_reformatted'] = new_figshare['title_reformatted'].str.lower()
-    new_figshare[['total_word_count_title', 'descriptive_word_count_title']] = new_figshare['title_reformatted'].apply(lambda x: pd.Series(count_words(x)))
+    new_figshare[['total_word_count_title', 'descriptive_word_count_title']] = (new_figshare['title_reformatted'].apply(lambda x: pd.Series(count_words(x, nondescriptive_words))))
     new_figshare['descriptive_word_count_title'] = new_figshare.apply(adjust_descriptive_count, axis=1)
     new_figshare['nondescriptive_word_count_title'] = new_figshare['total_word_count_title'] - new_figshare['descriptive_word_count_title']
 
@@ -1756,14 +1456,14 @@ if figshare_workflow_1:
     #file formats (not presently returned for mediated deposits)
     new_figshare['file_format'] = new_figshare['formats'].apply(
     lambda formats: ('; '.join([format_map.get(fmt, fmt) for fmt in formats])if isinstance(formats, set) else formats))   
-    # Assume softwareFormats is a set of friendly software format names
-    new_figshare['contains_code'] = new_figshare['file_format'].apply(lambda x: any(part.strip() in softwareFormats for part in x.split(';')) if isinstance(x, str) else False)
-    new_figshare['only_code'] = new_figshare['file_format'].apply(lambda x: all(part.strip() in softwareFormats for part in x.split(';')) if isinstance(x, str) else False)
+    # Assume software_formats is a set of friendly software format names
+    new_figshare['contains_code'] = new_figshare['file_format'].apply(lambda x: any(part.strip() in software_formats for part in x.split(';')) if isinstance(x, str) else False)
+    new_figshare['only_code'] = new_figshare['file_format'].apply(lambda x: all(part.strip() in software_formats for part in x.split(';')) if isinstance(x, str) else False)
 
     #adding in columns to reconcatenate with full dataset
     new_figshare['first_affiliation'] = new_figshare['first_affiliation'].apply(lambda x: ' '.join([str(item) for item in x if item is not None]) if isinstance(x, list) else x)
     new_figshare['last_affiliation'] = new_figshare['last_affiliation'].apply(lambda x: ' '.join([str(item) for item in x if item is not None]) if isinstance(x, list) else x)    
-    new_figshare['uni_lead'] = new_figshare.apply(determine_affiliation, axis=1)
+    new_figshare['uni_lead'] = new_figshare.apply(lambda row: determine_affiliation(row, ut_variations), axis=1)
     new_figshare['repository'] = 'figshare'
     new_figshare['source'] = 'DataCite+' #slight differentiation from records only retrieved from DataCite
     new_figshare['repository2'] = 'Other'
@@ -1827,7 +1527,7 @@ if figshare_workflow_2:
         journal_list = json.load(file)
 
     if indexer == 'OpenAlex':
-        openalex = retrieve_all_data_openalex(url_openalex, params_openalex)
+        openalex = retrieve_openalex(url_openalex, params_openalex, page_limit_openalex)
         df_openalex = pd.json_normalize(openalex)
         df_openalex['hypothetical_dataset'] = df_openalex['doi'] + '.s001'
         
@@ -1836,7 +1536,7 @@ if figshare_workflow_2:
         df_openalex.to_csv(f'outputs/{today}_openalex-articles-with-hypothetical-deposits.csv', index=False, encoding='utf-8')
         print(f'Number of valid datasets: {len(df_openalex)}.')
     else:
-        crossref_data = retrieve_all_journals(url_crossref_issn, journal_list)
+        crossref_data = retrieve_all_journals(url_crossref_issn, journal_list, params_crossref_journal, page_limit_crossref, retrieve_crossref)
 
         data_journals_select = []
         for item in crossref_data:
@@ -2087,7 +1787,7 @@ if ncbi_workflow:
     #select metadata assessment for titles
     ncbi_df_select['title_reformatted'] = ncbi_df_select['title'].str.replace('_', ' ') #gets around text linked by underscores counting as 1 word
     ncbi_df_select['title_reformatted'] = ncbi_df_select['title_reformatted'].str.lower()
-    ncbi_df_select[['total_word_count_title', 'descriptive_word_count_title']] = ncbi_df_select['title_reformatted'].apply(lambda x: pd.Series(count_words(x)))
+    ncbi_df_select[['total_word_count_title', 'descriptive_word_count_title']] = (ncbi_df_select['title_reformatted'].apply(lambda x: pd.Series(count_words(x, nondescriptive_words))))
     ncbi_df_select['descriptive_word_count_title'] = ncbi_df_select.apply(adjust_descriptive_count, axis=1)
     ncbi_df_select['nondescriptive_word_count_title'] = ncbi_df_select['total_word_count_title'] - ncbi_df_select['descriptive_word_count_title']
     ncbi_df_select['rights_standardized'] = 'Rights unclear'

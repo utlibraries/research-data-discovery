@@ -1,24 +1,21 @@
 import os
-import gzip
 import json
-import csv
 import pandas as pd
 import requests
-import tarfile
-import zipfile
 from datetime import datetime
 
 #setting timestamp to calculate run time
-startTime = datetime.now() 
+start_time = datetime.now() 
 #creating variable with current date for appending to filenames
-todayDate = datetime.now().strftime('%Y%m%d') 
+today_date = datetime.now().strftime('%Y%m%d') 
 
 #API urls
 url_crossref = "https://api.crossref.org/works/"
 url_datacite = 'https://api.datacite.org/dois'
 
 #read in config file
-with open('config.json', 'r') as file:
+parent = os.path.abspath(os.path.join(os.getcwd(), '..'))
+with open(f'{parent}/config.json', 'r') as file:
     config = json.load(file)
 institution = config['INSTITUTION']['filename']
 
@@ -98,8 +95,8 @@ for item in datasets:
     updated = attributes.get('updated', '')
     title = attributes.get('titles', [{}])[0].get('title', '')
     creators = attributes.get('creators', [{}])
-    creatorsNames = [creator.get('name', '') for creator in creators]
-    creatorsAffiliations = ['; '.join(creator.get('affiliation', [])) for creator in creators]
+    creators_names = [creator.get('name', '') for creator in creators]
+    creators_affiliations = ['; '.join(creator.get('affiliation', [])) for creator in creators]
     first_creator = creators[0].get('name', None) if creators else None
     last_creator = creators[-1].get('name', None) if creators else None
     affiliations = [
@@ -111,44 +108,44 @@ for item in datasets:
     first_affiliation = affiliations[0] if affiliations else None
     last_affiliation = affiliations[-1] if affiliations else None
     contributors = attributes.get('contributors', [{}])
-    contributorsNames = [contributor.get('name', '') for contributor in contributors]
-    contributorsAffiliations = ['; '.join(contributor.get('affiliation', [])) for contributor in contributors]
+    contributors_names = [contributor.get('name', '') for contributor in contributors]
+    contributors_affiliations = ['; '.join(contributor.get('affiliation', [])) for contributor in contributors]
     container = attributes.get('container', {})
     container_identifier = container.get('identifier', None)
     types = attributes.get('types', {})
 
-    #only retrieving if relationType is 'IsSupplementTo'
+    #only retrieving if relation_type is 'IsSupplementTo'
     related_identifiers = attributes.get('relatedIdentifiers', [])
     for identifier in related_identifiers:
-        relationType = identifier.get('relationType', '')
-        relatedIdentifier = identifier.get('relatedIdentifier', '')
+        relation_type = identifier.get('relationType', '')
+        related_identifier = identifier.get('relatedIdentifier', '')
 
-        if relationType == 'IsSupplementTo' and relatedIdentifier:
+        if relation_type == 'IsSupplementTo' and related_identifier:
             data_select_datacite_new.append({
                 'doi': doi,
                 'publisher': publisher,
-                'publicationYear': publisher_year,
-                'publicationDate': publisher_date,
-                'updatedDate': updated,
+                'publication_year': publisher_year,
+                'publication_date': publisher_date,
+                'updated_date': updated,
                 'title': title,
-                'creatorsNames': creatorsNames,
-                'creatorsAffiliations': creatorsAffiliations,
-                'contributorsNames': contributorsNames,
-                'contributorsAffiliations': contributorsAffiliations,
-                'relationType': relationType,
-                'relatedIdentifier': relatedIdentifier
+                'creators_names': creators_names,
+                'creators_affiliations': creators_affiliations,
+                'contributors_names': contributors_names,
+                'contributors_affiliations': contributors_affiliations,
+                'relation_type': relation_type,
+                'related_identifier': related_identifier
             })
 
 df_datacite_new = pd.json_normalize(data_select_datacite_new)
-df_datacite_new.to_csv(f"accessory-outputs/{todayDate}_{institution}-affiliated-figshare-datasets-expanded-metadata.csv")
+df_datacite_new.to_csv(f"accessory-outputs/{today_date}_{institution}-affiliated-figshare-datasets-expanded-metadata.csv")
 
-# df_figshare_supplemental = df_datacite_new.drop_duplicates(subset='relatedIdentifier', keep="first")
+# df_figshare_supplemental = df_datacite_new.drop_duplicates(subset='related_identifier', keep="first")
 # print(f'Number of DOIs to retrieve: {len(df_figshare_supplemental)}\n')
 
 #retrieving metadata about related identifiers (linked articles) that were identified
 print("Retrieving metadata about related articles from Crossref\n")
 results = []
-for doi in df_datacite_new['relatedIdentifier']:
+for doi in df_datacite_new['related_identifier']:
     try:
         response = requests.get(f'{url_crossref}/{doi}')
         if response.status_code == 200:
@@ -187,12 +184,12 @@ for item in articles:
 })
     
 df_crossref = pd.json_normalize(data_figshare_crossref_select)
-df_crossref.to_csv(f"accessory-outputs/{todayDate}_{institution}-affiliated-figshare-associated-articles.csv")
+df_crossref.to_csv(f"accessory-outputs/{today_date}_{institution}-affiliated-figshare-associated-articles.csv")
 
 #merge back with original dataset dataframe
-df_crossref['relatedIdentifier'] = df_crossref['doi']
-df_joint = pd.merge(df_datacite_new, df_crossref, on="relatedIdentifier", how="left")
-df_joint.to_csv(f"accessory-outputs/{todayDate}_{institution}-affiliated-figshare-associated-articles-merged.csv")
+df_crossref['related_identifier'] = df_crossref['doi']
+df_joint = pd.merge(df_datacite_new, df_crossref, on="related_identifier", how="left")
+df_joint.to_csv(f"accessory-outputs/{today_date}_{institution}-affiliated-figshare-associated-articles-merged.csv")
 
-print(f"Time to run: {datetime.now() - startTime}")
+print(f"Time to run: {datetime.now() - start_time}")
 print("Done.")

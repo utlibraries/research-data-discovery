@@ -5,11 +5,12 @@ import os
 import requests
 
 #read in config file
-with open('config.json', 'r') as file:
+parent = os.path.abspath(os.path.join(os.getcwd(), '..'))
+with open(f'{parent}/config.json', 'r') as file:
     config = json.load(file)
 
 #creating variable with current date for appending to filenames
-todayDate = datetime.now().strftime('%Y%m%d') 
+today_date = datetime.now().strftime('%Y%m%d') 
 
 #API endpoint
 url_figshare = 'https://api.figshare.com/v2/articles/{id}/files?page_size=10'
@@ -78,55 +79,55 @@ for item in results:
             'id': id,
             'name': file_info.get('name'),
             'size': file_info.get('size'),
-            'mimeTypeSet': mimetypes_set,
-            'mimeType': file_info.get('mimetype'),
+            'mime_type_set': mimetypes_set,
+            'mime_type': file_info.get('mimetype'),
         })
 
 df_figshare_metadata = pd.DataFrame(data_figshare_select)
 format_map = config['FORMAT_MAP']
-df_figshare_metadata['fileFormat'] = df_figshare_metadata['mimeType'].apply(lambda x: format_map.get(x, x))
-df_figshare_metadata['fileFormatsSet'] = df_figshare_metadata['mimeTypeSet'].apply(lambda x: '; '.join([format_map.get(fmt, fmt) for fmt in x]) if x != 'no files' else 'no files')
+df_figshare_metadata['file_format'] = df_figshare_metadata['mime_type'].apply(lambda x: format_map.get(x, x))
+df_figshare_metadata['file_format_set'] = df_figshare_metadata['mime_type_set'].apply(lambda x: '; '.join([format_map.get(fmt, fmt) for fmt in x]) if x != 'no files' else 'no files')
 
 #working around vague or misclassified mimetypes in Figshare metadata
 ##may need to be expanded for other institutions
 extension_criteria = {
-'.csv': 'CSV',
-'.doc': 'MS Word',
-'.m': 'MATLAB Script',
-'.ppt': 'MS PowerPoint',
-'.R': 'R Script',
-'.rds': 'R Data File',
-'.xls': 'MS Excel'
+    '.csv': 'CSV',
+    '.doc': 'MS Word',
+    '.m': 'MATLAB Script',
+    '.ppt': 'MS PowerPoint',
+    '.R': 'R Script',
+    '.rds': 'R Data File',
+    '.xls': 'MS Excel'
 }
 
-# Apply criteria to replace fileFormat entry based on file extension and mimetype
+# Apply criteria to replace file_format entry based on file extension and mimetype
 def apply_extension_criteria(row):
     for ext, fmt in extension_criteria.items():
-        if row['name'].endswith(ext) and row['mimeType'] == 'text/plain':
+        if row['name'].endswith(ext) and row['mime_type'] == 'text/plain':
             return fmt
-        if row['name'].endswith(ext) and row['mimeType'] == 'application/CDFV2':
+        if row['name'].endswith(ext) and row['mime_type'] == 'application/CDFV2':
             return fmt
-        if row['name'].endswith(ext) and row['mimeType'] == 'application/x-xz':
+        if row['name'].endswith(ext) and row['mime_type'] == 'application/x-xz':
             return fmt
-    return row['fileFormat']
+    return row['file_format']
 
-df_figshare_metadata['editedFileFormat'] = df_figshare_metadata.apply(apply_extension_criteria, axis=1)
-# df_figshare_metadata.to_csv(f'accessory-outputs/{todayDate}_figshare-discovery-all-metadata.csv', index=False)
+df_figshare_metadata['edited_file_format'] = df_figshare_metadata.apply(apply_extension_criteria, axis=1)
+# df_figshare_metadata.to_csv(f'accessory-outputs/{today_date}_figshare-discovery-all-metadata.csv', index=False)
 
 #combines all file types for one deposit ('id') into semi-colon-delimited string
-df_figshare_metadata_unified = df_figshare_metadata.groupby('id')['editedFileFormat'].apply(lambda x: '; '.join(set(x))).reset_index()
+df_figshare_metadata_unified = df_figshare_metadata.groupby('id')['edited_file_format'].apply(lambda x: '; '.join(set(x))).reset_index()
 #alphabetically orders file formats
-df_figshare_metadata_unified['ordered_formats'] = df_figshare_metadata_unified['editedFileFormat'].apply(lambda x: '; '.join(sorted(x.split('; '))))
+df_figshare_metadata_unified['ordered_formats'] = df_figshare_metadata_unified['edited_file_format'].apply(lambda x: '; '.join(sorted(x.split('; '))))
 
 #basic assessment of 'dataset' classification
 ##list of strings for software formats to check for
-software = ['MATLAB Script', 'R Script', 'Python', 'Shell Script']
+software = config['SOFTWARE_FORMATS']
 ##create two new columns for software detection
-df_figshare_metadata_unified['onlySoftware'] = df_figshare_metadata_unified['ordered_formats'].apply(lambda x: x if x in software else '')
-df_figshare_metadata_unified['containsSoftware'] = df_figshare_metadata_unified['ordered_formats'].apply(lambda x: any(s in x for s in software))
+df_figshare_metadata_unified['only_software'] = df_figshare_metadata_unified['ordered_formats'].apply(lambda x: x if x in software else '')
+df_figshare_metadata_unified['contains_software'] = df_figshare_metadata_unified['ordered_formats'].apply(lambda x: any(s in x for s in software))
 ##list of formats that are less likely to be data to check for
-notData = ['MS Word', 'PDF', 'MS Word; PDF']
+not_data = ['MS Word', 'PDF', 'MS Word; PDF']
 # Create a new column with 'Suspect' values
-df_figshare_metadata_unified['possiblyNotData'] = df_figshare_metadata_unified['ordered_formats'].apply(lambda x: 'Suspect' if x in notData else '')
+df_figshare_metadata_unified['possibly_not_data'] = df_figshare_metadata_unified['ordered_formats'].apply(lambda x: 'Suspect' if x in not_data else '')
 df_figshare_metadata_combined = pd.merge(figshare, df_figshare_metadata_unified, on='id', how='left')
-df_figshare_metadata_combined.to_csv(f'accessory-outputs/{todayDate}_figshare-discovery-all-metadata_combined.csv', index=False)
+df_figshare_metadata_combined.to_csv(f'accessory-outputs/{today_date}_figshare-discovery-all-metadata_combined.csv', index=False)

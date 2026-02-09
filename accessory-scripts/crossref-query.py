@@ -1,25 +1,31 @@
-import requests
 import pandas as pd
 import json
-import math
 import numpy as np
 import os
+import sys
 from datetime import datetime
 
-#operator for quick test runs
-test = False
-#operator for resource type(s) to query for (use '|' for Boolean OR)
-resourceType = 'dataset'
-#toggle to disable resource type filter
-resourceFilter = True
-#setting timestamp to calculate run time
-startTime = datetime.now() 
-#creating variable with current date for appending to filenames
-todayDate = datetime.now().strftime('%Y%m%d') 
+#call functions from parent utils.py file
+utils_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, utils_dir) 
+from utils import adjust_descriptive_count, count_words, determine_affiliation, retrieve_crossref 
 
 #read in config file
-with open('config.json', 'r') as file:
+parent = os.path.abspath(os.path.join(os.getcwd(), '..'))
+with open(f'{parent}/config.json', 'r') as file:
     config = json.load(file)
+
+#operator for quick test runs
+test = config['TOGGLES']['test']
+#operator for resource type(s) to query for (use '|' for Boolean OR)
+resource_type = 'dataset'
+#toggle to disable resource type filter
+resource_filter = True
+#setting timestamp to calculate run time
+start_time = datetime.now() 
+#creating variable with current date for appending to filenames
+today_date = datetime.now().strftime('%Y%m%d') 
+
 #load institutional name permutations
 ut_variations = config['PERMUTATIONS']
 #load institution string for filenames
@@ -47,9 +53,9 @@ else:
 
 url_crossref = "https://api.crossref.org/works?"
 page_limit_crossref = config['VARIABLES']['PAGE_LIMITS']['crossref_test'] if test else config['VARIABLES']['PAGE_LIMITS']['crossref_prod']
-if resourceFilter:
+if resource_filter:
     params_crossref = {
-        'filter': f'type:{resourceType}',
+        'filter': f'type:{resource_type}',
         'rows': config['VARIABLES']['PAGE_SIZES']['crossref'], 
         'query.affiliation': "university+of+texas+austin",
         'cursor': '*',
@@ -81,82 +87,8 @@ nondescriptive_words = set(
     numbers
 )
 
-#retrieves single page of results
-def retrieve_page_crossref(url, params=None):
-    try:
-        response = requests.get(url, params=params)
-        response.raise_for_status()  
-        return response.json()
-    except requests.RequestException as e:
-        print(f"Error retrieving page: {e}")
-        return {'message': {'items': [], 'total-results':{}}}
-##recursively retrieves pages
-def retrieve_all_data_crossref(url, params):
-    k = 0
-    all_data_crossref = []
-    previous_cursor = None
-
-    while k < page_limit_crossref:
-        data = retrieve_page_crossref(url, params)
-        items = data.get('message', {}).get('items', [])
-        next_cursor = data.get('message', {}).get('next-cursor')
-        total_count = data.get('message', {}).get('total-results', 0)
-        total_pages = math.ceil(total_count / params['rows'])
-        print(f'Retrieving page {k+1} of {total_pages}')
-        if not items:
-            print("No more items found.")
-            break
-
-        all_data_crossref.extend(items)
-        previous_cursor = next_cursor
-        params['cursor'] = next_cursor
-        k += 1
-
-    return all_data_crossref
-
-#determines which author (first vs. last or both) is affiliated
-def determine_affiliation(row):
-    if row['first_author'] == row['last_author']:
-        return 'single author'
-
-    first_affiliated = any(variation in (row['first_affiliation'] or '') for variation in ut_variations)
-    last_affiliated = any(variation in (row['last_affiliation'] or '') for variation in ut_variations)
-
-    if first_affiliated and last_affiliated:
-        return 'both lead and senior'
-    elif first_affiliated and not last_affiliated:
-        return 'only lead'
-    elif last_affiliated and not first_affiliated:
-        return 'only senior'
-    else:
-        return 'neither lead nor senior'
-    
-#function to count descriptive words
-def count_words(text):
-    # If text is None, NaN, or not a string, treat as empty
-    if not isinstance(text, str):
-        return 0, 0
-    words = text.split()
-    total_words = len(words)
-    descriptive_count = sum(1 for word in words if word not in nondescriptive_words)
-    return total_words, descriptive_count
-
-## account for when a single word may or may not be descriptive but is certainly uninformative if in a certain combination
-def adjust_descriptive_count(row):
-    title = row.get('title_reformatted', '')
-    if not isinstance(title, str):
-        title = ''
-    title_lower = title.lower()
-    if ('supplemental material' in title_lower or
-        'supplementary material' in title_lower or
-        'supplementary materials' in title_lower or
-        'supplemental materials' in title_lower):
-        count = row.get('descriptive_word_count_title', 0)
-        return max(0, count - 1)
-    return row.get('descriptive_word_count_title', 0)
-
-print("Starting Crossref retrieval")
-data_crossref = retrieve_all_data_crossref(url_crossref, params_crossref)
+print("Starting Crossref retrieval.\n")
+data_crossref = retrieve_crossref(url_crossref, params_crossref, page_limit_crossref)
 
 data_select_crossref = [] 
 for item in data_crossref:
@@ -174,9 +106,9 @@ for item in data_crossref:
     source = item.get('source', None)
     score = item.get('score', 0)
     authors = item.get('author', [])
-    authorNames = [f"{author.get('family', '')}, {author.get('given', '')}"  for author in authors]
-    authorNamesStr = '; '.join(authorNames)
-    authorAffiliations = ['; '.join([affiliation.get('name', '') for affiliation in author.get('affiliation', [])]) if author.get('affiliation', []) else '' for author in authors]    
+    author_names = [f"{author.get('family', '')}, {author.get('given', '')}"  for author in authors]
+    author_names_str = '; '.join(author_names)
+    author_affiliations = ['; '.join([affiliation.get('name', '') for affiliation in author.get('affiliation', [])]) if author.get('affiliation', []) else '' for author in authors]    
     authors_formatted = []
     for author in authors:
         last = author.get('family', '').strip()
@@ -194,10 +126,10 @@ for item in data_crossref:
         affil_str = ', '.join(unique_affiliations) if unique_affiliations else "No affiliation listed"
         authors_formatted.append(f"{name} ({affil_str})")
     authors_formatted.append(f"{name} ({affil_str})")
-    first_author = authorNames[0] if authorNames else None
-    last_author = authorNames[-1] if authorNames else None
-    first_affiliation = authorAffiliations[0] if authorAffiliations else None
-    last_affiliation = authorAffiliations[-1] if authorAffiliations else None
+    first_author = author_names[0] if author_names else None
+    last_author = author_names[-1] if author_names else None
+    first_affiliation = author_affiliations[0] if author_affiliations else None
+    last_affiliation = author_affiliations[-1] if author_affiliations else None
     relation = item.get('relation', {})
     relation_type = next(iter(relation.keys()), None)
     relation_id = None
@@ -214,44 +146,43 @@ for item in data_crossref:
         'doi': doi,
         'state': 'findable', #mirroring DataCite, no equivalent field
         'repository': publisher,
-        'publicationYear': indexed_year,
-        'publicationDate': indexed_date_str,
+        'publication_year': indexed_year,
+        'publication_date': indexed_date_str,
         'title': title,
         'first_author': first_author,
         'first_affiliation': first_affiliation,
         'last_author': last_author,
         'last_affiliation': last_affiliation,
-        'creatorsNames': authorNames,
-        'creatorsAffiliations': authorAffiliations,
-        'creatorsFormatted': authors_formatted,
-        'contributorsNames': 'No equivalent field', #filler to match DataCite, no equivalent field
-        'contributorsAffiliations': 'No equivalent field', #filler to match DataCite, no equivalent field
-        'contributorsFormatted': 'Not applicable', #filler to match DataCite, no equivalent field
-        'relationType': relation_type,
-        'relatedIdentifier':related_identifiers, #filler to match DataCite, no equivalent field
-        'containerIdentifier': 'No equivalent field', #filler to match DataCite, no equivalent field
+        'creators_names': author_names,
+        'creators_affiliations': author_affiliations,
+        'creators_formatted': authors_formatted,
+        'contributors_names': 'No equivalent field', #filler to match DataCite, no equivalent field
+        'contributors_affiliations': 'No equivalent field', #filler to match DataCite, no equivalent field
+        'contributors_formatted': 'Not applicable', #filler to match DataCite, no equivalent field
+        'relation_type': relation_type,
+        'related_identifier':'No equivalent field', #filler to match DataCite, no equivalent field
+        'container_identifier': 'No equivalent field', #filler to match DataCite, no equivalent field
         'type': type,
         'subjects': 'No keyword information', #filler to match DataCite, no equivalent field
-        'depositSize': 'No file size information', #filler to match DataCite, no equivalent field
+        'deposit_size': 'No file size information', #filler to match DataCite, no equivalent field
         'formats': 'No file information', #filler to match DataCite, no equivalent field
-        'fileCount': 'No file information', #filler to match DataCite, no equivalent field
+        'file_count': 'No file information', #filler to match DataCite, no equivalent field
         'rights': license, #filler to match DataCite, no equivalent field
-        'rightsCode': licenseURL,
+        'rights_code': licenseURL,
         'views': 'No metrics information', #filler to match DataCite, no equivalent field
         'downloads': 'No metrics information', #filler to match DataCite, no equivalent field
         'citations': citations, 
         'source': source,
         'affiliation_source': 'creator.affiliationName', #mirroring DataCite
         'affiliation_permutation': '', #setting to blank, populates later
-        'hadPartialDuplicate': 'Not applicable', #filler to match DataCite, no equivalent field
-        'fileFormat': 'No file information', #filler to match DataCite, no equivalent field
-        'containsCode': 'No file information', #filler to match DataCite, no equivalent field
-        'onlyCode': 'No file information', #filler to match DataCite, no equivalent field 
+        'had_partial_duplicate': 'Not applicable', #filler to match DataCite, no equivalent field
+        'file_format': 'No file information', #filler to match DataCite, no equivalent field
+        'contains_code': 'No file information', #filler to match DataCite, no equivalent field
+        'only_code': 'No file information', #filler to match DataCite, no equivalent field 
         'doi_article': 'Not applicable', #filler to match Figshare workflow, no equivalent process or field
         'title_article': 'Not applicable', #filler to match Figshare workflow, no equivalent process or field
-        'publication_year': 'Not applicable', #filler to match Figshare workflow, no equivalent process or field
         'journal': 'Not applicable', #filler to match Figshare workflow, no equivalent process or field
-        'relatedIdentifierType': 'Not applicable' #filler to match Figshare workflow, no equivalent process or field
+        'related_identifier_type': 'Not applicable' #filler to match Figshare workflow, no equivalent process or field
     })
 
 df_data_select_crossref = pd.DataFrame(data_select_crossref)
@@ -260,10 +191,10 @@ df_data_select_crossref_deduplicated = df_data_select_crossref.drop_duplicates(s
 #creating column for source of detected affiliation
 pattern = '|'.join([f'({perm})' for perm in ut_variations])
 df_data_select_crossref_deduplicated['affiliation_source'] = df_data_select_crossref_deduplicated.apply(
-    lambda row: 'affiliation' if pd.Series(row['creatorsAffiliations']).str.contains(pattern, case=False, na=False).any()
-    else ('author' if pd.Series(row['creatorsNames']).str.contains(pattern, case=False, na=False).any()
+    lambda row: 'affiliation' if pd.Series(row['creators_affiliations']).str.contains(pattern, case=False, na=False).any()
+    else ('author' if pd.Series(row['creators_names']).str.contains(pattern, case=False, na=False).any()
     else None), axis=1)
-df_data_select_crossref_deduplicated['affiliation_permutation'] = df_data_select_crossref_deduplicated['creatorsAffiliations'].apply(
+df_data_select_crossref_deduplicated['affiliation_permutation'] = df_data_select_crossref_deduplicated['creators_affiliations'].apply(
     lambda affs: next((p for p in ut_variations if any(p in aff for aff in affs)), None)
 )
 
@@ -271,7 +202,7 @@ df_data_select_crossref_deduplicated['affiliation_permutation'] = df_data_select
 ##titles
 df_data_select_crossref_deduplicated['title_reformatted'] = df_data_select_crossref_deduplicated['title'].str.replace('_', ' ') #gets around text linked by underscores counting as 1 word
 df_data_select_crossref_deduplicated['title_reformatted'] = df_data_select_crossref_deduplicated['title_reformatted'].str.lower()
-df_data_select_crossref_deduplicated[['total_word_count_title', 'descriptive_word_count_title']] = df_data_select_crossref_deduplicated['title_reformatted'].apply(lambda x: pd.Series(count_words(x)))
+df_data_select_crossref_deduplicated[['total_word_count_title', 'descriptive_word_count_title']] = df_data_select_crossref_deduplicated['title_reformatted'].apply(lambda x: pd.Series(count_words(x, nondescriptive_words)))
 
 df_data_select_crossref_deduplicated['descriptive_word_count_title'] = df_data_select_crossref_deduplicated.apply(adjust_descriptive_count, axis=1)
 df_data_select_crossref_deduplicated['nondescriptive_word_count_title'] = df_data_select_crossref_deduplicated['total_word_count_title'] - df_data_select_crossref_deduplicated['descriptive_word_count_title']
@@ -301,14 +232,14 @@ df_data_select_crossref_deduplicated.loc[df_data_select_crossref_deduplicated['r
 df_data_select_crossref_deduplicated.loc[df_data_select_crossref_deduplicated['rights'].str.contains('UCAR'), 'rights_standardized'] = 'Custom terms'
 df_data_select_crossref_deduplicated.loc[df_data_select_crossref_deduplicated['rights'] == '', 'rights_standardized'] = 'Rights unclear'
 
-df_data_select_crossref_deduplicated.to_csv(f"accessory-outputs/{todayDate}_crossref-all-objects.csv", index=False)
+df_data_select_crossref_deduplicated.to_csv(f"accessory-outputs/{today_date}_crossref-all-objects.csv", index=False)
 
 #removing anything that doesn't actually have some form of 'UT Austin'
 df_data_select_crossref_true = df_data_select_crossref_deduplicated[df_data_select_crossref_deduplicated['affiliation_permutation'].notna()].copy()
 #standardizing platform names
 df_data_select_crossref_true.loc[df_data_select_crossref_true['repository'].str.contains('H1 Connect', case=False), 'repository'] = 'H1 Connect (Faculty Opinions)'
 df_data_select_crossref_true.loc[df_data_select_crossref_true['repository'].str.contains('Faculty Opinions', case=False), 'repository'] = 'H1 Connect (Faculty Opinions)'
-df_data_select_crossref_true.to_csv(f"accessory-outputs/{todayDate}_crossref-{institution}-objects.csv", index=False)
+df_data_select_crossref_true.to_csv(f"accessory-outputs/{today_date}_crossref-{institution}-objects.csv", index=False)
 
 # get summary counts of repositories (key: primary_location.source.display_name)
 repo_count = df_data_select_crossref_true['repository'].value_counts()
@@ -316,10 +247,10 @@ print("Counts for full data")
 print(repo_count)
 
 #restricting to only columns found in DataCite output and only repositories that are actual data
-# df_data_select_crossref_pruned = df_data_select_crossref_true[['repository', 'doi', 'publicationYear', 'publicationDate', 'title', 'creatorsNames', 'creatorsAffiliations', 'creatorsFormatted', 'contributorsNames', 'contributorsAffiliations', 'contributorsFormatted', 'first_author', 'first_affiliation', 'last_author', 'last_affiliation', 'source', 'type']] 
+# df_data_select_crossref_pruned = df_data_select_crossref_true[['repository', 'doi', 'publicationYear', 'publicationDate', 'title', 'creators_names', 'creators_affiliations', 'creators_formatted', 'contributors_names', 'contributors_affiliations', 'contributors_formatted', 'first_author', 'first_affiliation', 'last_author', 'last_affiliation', 'source', 'type']] 
 df_data_select_crossref_pruned = df_data_select_crossref_true
 #adding columns for harmonizing with DataCite output
-df_data_select_crossref_pruned['uni_lead'] = df_data_select_crossref_pruned.apply(determine_affiliation, axis=1)
+df_data_select_crossref_pruned['uni_lead'] = df_data_select_crossref_pruned.apply(lambda row: determine_affiliation(row, ut_variations), axis=1)
 df_data_select_crossref_pruned['repository2'] = 'Other'
 df_data_select_crossref_pruned['non_TDR_IR'] = 'not university or TDR'
 df_data_select_crossref_pruned['US_federal'] = 'not federal US repo'
@@ -330,7 +261,7 @@ df_data_select_crossref_pruned['type_reclassified'] = 'Dataset'
 #will need to be customized for a different institution, although some are likely to recur (e.g., H1, Authorea)
 df_data_select_crossref_pruned_repos = df_data_select_crossref_pruned[~df_data_select_crossref_pruned['repository'].str.contains('H1 Connect|Wiley|NumFOCUS|Exploration Geophysicists|College of Radiology')]
 
-df_data_select_crossref_pruned_repos.to_csv(f"accessory-outputs/{todayDate}_crossref-{institution}-true-datasets.csv", index=False)
+df_data_select_crossref_pruned_repos.to_csv(f"accessory-outputs/{today_date}_crossref-{institution}-true-datasets.csv", index=False)
 
 print('\nDone.\n')
-print(f'Time to run: {datetime.now() - startTime}')
+print(f'Time to run: {datetime.now() - start_time}')
