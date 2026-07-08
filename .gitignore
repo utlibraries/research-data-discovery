@@ -1,5 +1,5 @@
 # Custom
-config.json
+env.json
 test/
 logs/
 inputs/
@@ -184,3 +184,4 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+env.json

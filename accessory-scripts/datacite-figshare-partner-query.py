@@ -10,13 +10,13 @@ utils_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, utils_dir) 
 from utils import retrieve_datacite, retrieve_openalex 
 
-#read in config file
+#read in env file
 parent = os.path.abspath(os.path.join(os.getcwd(), '..'))
-with open(f'{parent}/config.json', 'r') as file:
-    config = json.load(file)
+with open(f'{parent}/env.json', 'r') as file:
+    env = json.load(file)
 
 #operator for quick test runs
-test = config['TOGGLES']['test']
+test = env['TOGGLES']['test']
 #toggles for executing Figshare validator (see README for details)
 figshare_validator = True
 #setting timestamp to calculate run time
@@ -54,20 +54,20 @@ url_figshare = 'https://api.figshare.com/v2/articles/{id}/files?page_size=10'
 url_openalex = 'https://api.openalex.org/works'
 
 ##per page
-per_page_datacite = config['VARIABLES']['PAGE_SIZES']['datacite']
+per_page_datacite = env['VARIABLES']['PAGE_SIZES']['datacite']
 
 #define different number of pages to retrieve from DataCite API based on 'test' vs. 'prod' env
-page_limit_datacite = config['VARIABLES']['PAGE_LIMITS']['datacite_test'] if test else config['VARIABLES']['PAGE_LIMITS']['datacite_prod']
-page_limit_openalex = config['VARIABLES']['PAGE_LIMITS']['openalex_test'] if test else config['VARIABLES']['PAGE_LIMITS']['openalex_prod']
+page_limit_datacite = env['VARIABLES']['PAGE_LIMITS']['datacite_test'] if test else env['VARIABLES']['PAGE_LIMITS']['datacite_prod']
+page_limit_openalex = env['VARIABLES']['PAGE_LIMITS']['openalex_test'] if test else env['VARIABLES']['PAGE_LIMITS']['openalex_prod']
 
 #define variables to be called recursively in function
-page_start_datacite = config['VARIABLES']['PAGE_STARTS']['datacite']
+page_start_datacite = env['VARIABLES']['PAGE_STARTS']['datacite']
 
 #figshare DOIs sometimes have a .v* for version number; this toggles whether to include them (True) or only include the parent (False)
 countVersions = False
 
 #pull in map of publisher names and OpenAlex codes
-publisher_mapping = config['FIGSHARE_PARTNERS']
+publisher_mapping = env['FIGSHARE_PARTNERS']
 #create empty object to store results
 data_select_datacite = [] 
 data_select_openalex = []
@@ -75,23 +75,23 @@ data_select_openalex = []
 #update both params for each publisher in map
 params_openalex = {
     'filter': 'authorships.institutions.ror:https://ror.org/00hj54h04,type:article,from_publication_date:2000-01-01,locations.source.host_organization:https://openalex.org/P4310320547',
-    'per-page': config['VARIABLES']['PAGE_SIZES']['openalex'],
+    'per-page': env['VARIABLES']['PAGE_SIZES']['openalex'],
     'select': 'id,doi,title,authorships,primary_location,type',
-    'mailto': config['EMAIL']['user_email']
+    'mailto': env['EMAIL']['user_email']
 }
 j = 0
 #define different number of pages to retrieve from OpenAlex API based on 'test' vs. 'prod' env
-page_limit_openalex = config['VARIABLES']['PAGE_LIMITS']['openalex_test'] if test else config['VARIABLES']['PAGE_LIMITS']['openalex_prod']
+page_limit_openalex = env['VARIABLES']['PAGE_LIMITS']['openalex_test'] if test else env['VARIABLES']['PAGE_LIMITS']['openalex_prod']
 #DataCite params (different from general affiliation-based retrieval params)
 ## !! Warning: if you do not set a resourceType in the query (recommended if you want to get broad coverage), this will be a very large retrieval. In the test env, there may not be enough records to find a match with a university-affiliated article !!
 params_datacite_figshare = {
     'affiliation': 'true',
     'query': f'publisher:"{publisher}" AND publicationYear:[2021 TO 2025]',
-    'page[size]': config['VARIABLES']['PAGE_SIZES']['datacite'],
+    'page[size]': env['VARIABLES']['PAGE_SIZES']['datacite'],
     'page[cursor]': 1,
 }
-page_start_datacite = config['VARIABLES']['PAGE_STARTS']['datacite'] #reset to 0 (default) after large-scale general retrieval through DataCite
-per_page_datacite = config['VARIABLES']['PAGE_SIZES']['datacite']
+page_start_datacite = env['VARIABLES']['PAGE_STARTS']['datacite'] #reset to 0 (default) after large-scale general retrieval through DataCite
+per_page_datacite = env['VARIABLES']['PAGE_SIZES']['datacite']
 
 print(f'Starting DataCite retrieval.\n')
 data_datacite = retrieve_datacite(url_datacite, params_datacite_figshare, page_start_datacite, page_limit_datacite, per_page_datacite)
@@ -234,7 +234,7 @@ if figshare_validator:
             })
 
     df_figshare_metadata = pd.DataFrame(data_figshare_select)
-    format_map = config['FORMAT_MAP']
+    format_map = env['FORMAT_MAP']
     df_figshare_metadata['file_format'] = df_figshare_metadata['mime_type'].apply(lambda x: format_map.get(x, x))
     df_figshare_metadata['file_formats_set'] = df_figshare_metadata['mime_type_set'].apply(lambda x: ('no files' if x == 'no files' else '; '.join( [str(format_map.get(fmt,fmt)) for fmt in x if format_map.get(fmt, fmt) is not None or fmt is not None])))
 
@@ -269,7 +269,7 @@ if figshare_validator:
 
     #basic assessment of 'dataset' classification
     ##list of strings for software formats to check for
-    software_formats = set(config['SOFTWARE_FORMATS'].values())
+    software_formats = set(env['SOFTWARE_FORMATS'].values())
     ##create two new columns for software detection
     df_figshare_metadata_unified['only_software'] = df_figshare_metadata_unified['ordered_formats'].apply(lambda x: x if x in software_formats else '')
     df_figshare_metadata_unified['contains_software'] = df_figshare_metadata_unified['ordered_formats'].apply(lambda x: any(s in x for s in software_formats))

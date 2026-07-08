@@ -11,21 +11,21 @@ utils_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, utils_dir) 
 from utils import retrieve_datacite 
 
-#read in config file
+#read in env file
 parent = os.path.abspath(os.path.join(os.getcwd(), '..'))
-with open(f'{parent}/config.json', 'r') as file:
-    config = json.load(file)
+with open(f'{parent}/env.json', 'r') as file:
+    env = json.load(file)
 
 #operator for quick test runs
-test = config['TOGGLES']['test']
+test = env['TOGGLES']['test']
 #setting timestamp to calculate run time
 start_time = datetime.now() 
 #creating variable with current date for appending to filenames
 today_date = datetime.now().strftime("%Y%m%d") 
 #toggles for which test to run
-ror_affiliation = config['INSTITUTION']['ror_affiliation']
-exact_affiliation = config['INSTITUTION']['exact_affiliation']
-wildcard_affiliation = config['INSTITUTION']['wildcard_affiliation']
+ror_affiliation = env['INSTITUTION']['ror_affiliation']
+exact_affiliation = env['INSTITUTION']['exact_affiliation']
+wildcard_affiliation = env['INSTITUTION']['wildcard_affiliation']
 
 #creating directories
 if test:
@@ -51,22 +51,22 @@ else:
 url_datacite = "https://api.datacite.org/dois"
 
 #load in ROR link
-ror = config['INSTITUTION']['ror']
+ror = env['INSTITUTION']['ror']
 
 params_datacite = {
     'affiliation': 'true',
     # 'query': f'(creators.affiliation.affiliationIdentifier:"{ror}" OR creators.name:"{ror}" OR contributors.affiliation.affiliationIdentifier:"{ror}" OR contributors.name:"{ror}") AND types.resourceTypeGeneral:"Dataset"',
     'query': f'(creators.affiliation.affiliationIdentifier:"{ror}") AND types.resourceTypeGeneral:"Dataset"',
-    'page[size]': config['VARIABLES']['PAGE_SIZES']['datacite'],
+    'page[size]': env['VARIABLES']['PAGE_SIZES']['datacite'],
     'page[cursor]': 1,
 }
 
 #define different number of pages to retrieve from DataCite API based on 'test' vs. 'prod' env
-page_limit_datacite = config['VARIABLES']['PAGE_LIMITS']['datacite_test'] if test else config['VARIABLES']['PAGE_LIMITS']['datacite_prod']
+page_limit_datacite = env['VARIABLES']['PAGE_LIMITS']['datacite_test'] if test else env['VARIABLES']['PAGE_LIMITS']['datacite_prod']
 #page number start
-page_start_datacite = config['VARIABLES']['PAGE_STARTS']['datacite']
+page_start_datacite = env['VARIABLES']['PAGE_STARTS']['datacite']
 ##per page
-per_page_datacite = config['VARIABLES']['PAGE_SIZES']['datacite']
+per_page_datacite = env['VARIABLES']['PAGE_SIZES']['datacite']
 
 if ror_affiliation:
     print("Starting DataCite retrieval based on ROR-based affiliation.\n")
@@ -224,14 +224,14 @@ if exact_affiliation:
     params_datacite = {
         'affiliation': 'true',
         'query': f'(creators.affiliation.name:"The University of Texas at Austin") AND types.resourceTypeGeneral:"Dataset"',
-        'page[size]': config['VARIABLES']['PAGE_SIZES']['datacite'],
+        'page[size]': env['VARIABLES']['PAGE_SIZES']['datacite'],
         'page[cursor]': 1,
     }
 
     #define different number of pages to retrieve from DataCite API based on 'test' vs. 'prod' env
-    page_limit_datacite = config['VARIABLES']['PAGE_LIMITS']['datacite_test'] if test else config['VARIABLES']['PAGE_LIMITS']['datacite_prod']
+    page_limit_datacite = env['VARIABLES']['PAGE_LIMITS']['datacite_test'] if test else env['VARIABLES']['PAGE_LIMITS']['datacite_prod']
     #define variables to be called recursively in function
-    page_start_datacite = config['VARIABLES']['PAGE_STARTS']['datacite']
+    page_start_datacite = env['VARIABLES']['PAGE_STARTS']['datacite']
 
     print("Starting DataCite retrieval based on affiliation.\n")
     data_datacite = retrieve_datacite(url_datacite, params_datacite, page_start_datacite, page_limit_datacite, per_page_datacite)
@@ -397,14 +397,14 @@ if wildcard_affiliation:
     params_datacite = {
         'affiliation': 'true',
         'query': query,
-        'page[size]': config['VARIABLES']['PAGE_SIZES']['datacite'],
+        'page[size]': env['VARIABLES']['PAGE_SIZES']['datacite'],
         'page[cursor]': 1,
     }
 
     #define different number of pages to retrieve from DataCite API based on 'test' vs. 'prod' env
-    page_limit_datacite = config['VARIABLES']['PAGE_LIMITS']['datacite_test'] if test else config['VARIABLES']['PAGE_LIMITS']['datacite_prod']
+    page_limit_datacite = env['VARIABLES']['PAGE_LIMITS']['datacite_test'] if test else env['VARIABLES']['PAGE_LIMITS']['datacite_prod']
     #define variables to be called recursively in function
-    page_start_datacite = config['VARIABLES']['PAGE_STARTS']['datacite']
+    page_start_datacite = env['VARIABLES']['PAGE_STARTS']['datacite']
 
     print("Starting DataCite retrieval based on wildcard affiliation.\n")
     data_datacite = retrieve_datacite(url_datacite, params_datacite, page_start_datacite, page_limit_datacite, per_page_datacite)

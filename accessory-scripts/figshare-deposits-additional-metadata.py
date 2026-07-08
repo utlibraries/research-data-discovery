@@ -4,10 +4,10 @@ import pandas as pd
 import os
 import requests
 
-#read in config file
+#read in env file
 parent = os.path.abspath(os.path.join(os.getcwd(), '..'))
-with open(f'{parent}/config.json', 'r') as file:
-    config = json.load(file)
+with open(f'{parent}/env.json', 'r') as file:
+    env = json.load(file)
 
 #creating variable with current date for appending to filenames
 today_date = datetime.now().strftime('%Y%m%d') 
@@ -84,7 +84,7 @@ for item in results:
         })
 
 df_figshare_metadata = pd.DataFrame(data_figshare_select)
-format_map = config['FORMAT_MAP']
+format_map = env['FORMAT_MAP']
 df_figshare_metadata['file_format'] = df_figshare_metadata['mime_type'].apply(lambda x: format_map.get(x, x))
 df_figshare_metadata['file_format_set'] = df_figshare_metadata['mime_type_set'].apply(lambda x: '; '.join([format_map.get(fmt, fmt) for fmt in x]) if x != 'no files' else 'no files')
 
@@ -121,7 +121,7 @@ df_figshare_metadata_unified['ordered_formats'] = df_figshare_metadata_unified['
 
 #basic assessment of 'dataset' classification
 ##list of strings for software formats to check for
-software = config['SOFTWARE_FORMATS']
+software = env['SOFTWARE_FORMATS']
 ##create two new columns for software detection
 df_figshare_metadata_unified['only_software'] = df_figshare_metadata_unified['ordered_formats'].apply(lambda x: x if x in software else '')
 df_figshare_metadata_unified['contains_software'] = df_figshare_metadata_unified['ordered_formats'].apply(lambda x: any(s in x for s in software))

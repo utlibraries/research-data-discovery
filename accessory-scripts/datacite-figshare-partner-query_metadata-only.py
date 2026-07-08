@@ -9,10 +9,10 @@ utils_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, utils_dir) 
 from utils import retrieve_datacite_summary 
 
-#read in config file
+#read in env file
 parent = os.path.abspath(os.path.join(os.getcwd(), '..'))
-with open(f'{parent}/config.json', 'r') as file:
-    config = json.load(file)
+with open(f'{parent}/env.json', 'r') as file:
+    env = json.load(file)
 
 #setting timestamp to calculate run time
 start_time = datetime.now() 
@@ -21,24 +21,23 @@ today_date = datetime.now().strftime("%Y%m%d")
 
 #toggle for deposits affiliated with specific university (True) or all deposits associated with publisher (False)
 ##reminder that any affiliation-based query will not be comprehensive for Figshare due to poor metadata
-affiliated = config['INSTITUTION']['affiliated']
+affiliated = env['INSTITUTION']['affiliated']
 
-#read in config file
+#read in env file
 parent = os.path.abspath(os.path.join(os.getcwd(), '..'))
-with open(f'{parent}/config.json', 'r') as file:
-    config = json.load(file)
+with open(f'{parent}/env.json', 'r') as file:
+    env = json.load(file)
 
 #all DataCite Figshare partners
-figshare_partners_keys = list(config['FIGSHARE_PARTNERS'].keys())
+figshare_partners_keys = list(env['FIGSHARE_PARTNERS'].keys())
+
+institution = env['INSTITUTION']['name']
+institution_filename = env['INSTITUTION']['filename']
 
 if affiliated:
     #create permutation string with OR for API parameters
-    ut_variations = config['PERMUTATIONS']
+    ut_variations = env['PERMUTATIONS']
     institution_query = ' OR '.join([f'"{variation}"' for variation in ut_variations])
-    #pulls in string to append in filenames
-    institution_filename = config['INSTITUTION']['filename']
-    #pulls in string for print statements during retrieval
-    institution = config['INSTITUTION']['name']
 
 #creating directories
 if os.path.isdir('accessory-outputs'):
@@ -54,7 +53,7 @@ url_datacite = 'https://api.datacite.org/dois'
 page_limit_datacite = 1
 
 #define variables to be called recursively in function
-page_start_datacite = config['VARIABLES']['PAGE_STARTS']['datacite']
+page_start_datacite = env['VARIABLES']['PAGE_STARTS']['datacite']
 
 print(f'Starting DataCite retrieval.\n')
 
@@ -66,19 +65,21 @@ for publisher in figshare_partners_keys:
     if affiliated:
         params_datacite = {
             'affiliation': 'true',
+            'disable-facets': 'false',
             'query': f'publisher:"{publisher}" AND (creators.affiliation.name:({institution_query}) OR creators.name:({institution_query}) OR contributors.affiliation.name:({institution_query}) OR contributors.name:({institution_query}))',
-            'page[size]': config['VARIABLES']['PAGE_SIZES']['datacite'], 
+            'page[size]': env['VARIABLES']['PAGE_SIZES']['datacite'],
             'page[cursor]': 1,
         }
     else:
         params_datacite = {
             'affiliation': 'true',
+            'disable-facets': 'false',
             'query': f'publisher:"{publisher}"',
-            'page[size]': config['VARIABLES']['PAGE_SIZES']['datacite'], 
+            'page[size]': env['VARIABLES']['PAGE_SIZES']['datacite'],
             'page[cursor]': 1,
         }
     
-    resource_types_data, licenses_data = retrieve_datacite_summary(url_datacite, params_datacite, publisher, affiliated, institution=None)
+    resource_types_data, licenses_data = retrieve_datacite_summary(url_datacite, params_datacite, publisher, affiliated, institution=institution)
     
     all_resource_types_data.extend(resource_types_data)
     all_licenses_data.extend(licenses_data)

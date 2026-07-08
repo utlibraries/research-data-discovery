@@ -11,12 +11,12 @@ import re
 import requests
 import time
 
-#read in config file
-with open('config.json', 'r') as file:
-    config = json.load(file)
+#read in env file
+with open('env.json', 'r') as file:
+    env = json.load(file)
 
 #operator for quick test runs
-test = config['TOGGLES']['test']
+test = env['TOGGLES']['test']
 
 #operator for resource types to query for (use OR and put in parentheses for multiple types)
 ##GENERAL DataCite query
@@ -29,7 +29,7 @@ zenodo_resource_type = '(' + ' OR '.join([f'type:{rt.lower()}' for rt in resourc
 ##create string to include in filenames based on resource type
 resource_filename = '-'.join([rt.lower() for rt in resource_types])
 ##toggle based on whether resource_type is used in the API query
-resource_type_filter = config['TOGGLES']['resource_type_filter']
+resource_type_filter = env['TOGGLES']['resource_type_filter']
 if resource_type_filter:
     resource_filename = resource_filename
 else:
@@ -41,38 +41,38 @@ figshare_resource_types = ['Dataset', 'Software']
 figshare_datacite_resource_type = '(' + ' OR '.join(figshare_resource_types) + ')'
 figshare_resource_filename = '-'.join([rt.lower() for rt in figshare_resource_types])
 ##toggle based on whether resource_type is used in the API query
-figshare_resource_type_filter = config['TOGGLES']['figshare_resource_type_filter']
+figshare_resource_type_filter = env['TOGGLES']['figshare_resource_type_filter']
 if figshare_resource_type_filter:
     figshare_resource_filename = figshare_resource_filename
 else:
     figshare_resource_filename = 'all-resource-types'
 
 #toggle for cross-validation steps
-cross_validate = config['TOGGLES']['cross_validate']
+cross_validate = env['TOGGLES']['cross_validate']
 ##toggle for Dataverse cross-validation specifically
-dataverse = config['TOGGLES']['dataverse']
+dataverse = env['TOGGLES']['dataverse']
 ##toggle for de-duplicating partial Dataverse replicates (multiple deposits for one manuscript within one dataverse) - see README for details
-dataverse_duplicates = config['TOGGLES']['dataverse_duplicates']
+dataverse_duplicates = env['TOGGLES']['dataverse_duplicates']
 ##toggle for UT Austin specific edge cases (set to False if you are not at UT Austin)
-austin = config['TOGGLES']['austin']
+austin = env['TOGGLES']['austin']
 
 #toggles for executing Figshare processes (see README for details)
 ##looking for datasets with a journal publisher listed as publisher, X-ref'ing with university articles from that publisher
-figshare_workflow_1 = config['TOGGLES']['figshare_workflow_1']
+figshare_workflow_1 = env['TOGGLES']['figshare_workflow_1']
 ##finding university articles from publisher that uses certain formula for Figshare DOIs, construct hypothetical DOI, test if it exists
-figshare_workflow_2 = config['TOGGLES']['figshare_workflow_2']
+figshare_workflow_2 = env['TOGGLES']['figshare_workflow_2']
 
 ##if you have done a previous DataCite retrieval and don't want to re-run the entire main process (skip to Figshare steps)
-load_previous_data = config['TOGGLES']['load_previous_data']
+load_previous_data = env['TOGGLES']['load_previous_data']
 #if you have done a previous DataCite retrieval and Figshare workflow 1 and don't want to re-run these
-load_previous_data_plus = config['TOGGLES']['load_previous_data_plus']
+load_previous_data_plus = env['TOGGLES']['load_previous_data_plus']
 #toggle for executing NCBI process
-ncbi_workflow = config['TOGGLES']['ncbi_workflow']
+ncbi_workflow = env['TOGGLES']['ncbi_workflow']
 ##loading package in only if running NCBI workflow
 if ncbi_workflow:
     import xml.etree.ElementTree as ET
 #toggle for whether to use biopython approach to NCBI (TRUE = biopython; FALSE = Selenium)
-biopython = config['TOGGLES']['biopython']
+biopython = env['TOGGLES']['biopython']
 ##loading packages in only if running NCBI workflow and depending on selection
 if biopython and ncbi_workflow:
     from Bio import Entrez
@@ -85,11 +85,11 @@ elif not biopython and ncbi_workflow:
     from selenium.webdriver.firefox.options import Options
 
 #toggle for skipping web retrieval of NCBI data (just XML to dataframe conversion)
-load_ncbi_data = config['TOGGLES']['load_ncbi_data']
+load_ncbi_data = env['TOGGLES']['load_ncbi_data']
 #toggle for loading previous DataCite + Figshare workflow 1 + NCBI
-load_previous_data_plus_ncbi = config['TOGGLES']['load_previous_data_plus_ncbi']
+load_previous_data_plus_ncbi = env['TOGGLES']['load_previous_data_plus_ncbi']
 #toggle to load in externally generated Crossref data
-load_crossref = config['TOGGLES']['load_crossref']
+load_crossref = env['TOGGLES']['load_crossref']
 
 #conditional toggles, if loading in previous data, automatically set certain other toggles to False regardless of how they are set
 ##should minimize how much you need to edit multiple toggles (W.I.P.)
@@ -103,34 +103,35 @@ if load_previous_data_plus_ncbi:
 
 #creating directories
 ##write logs regardless of env
-if os.path.isdir('logs'):
-        print('logs directory found - no need to recreate')
-else:
-    os.mkdir('logs')
-    print('logs directory has been created')
+
 if test:
     if os.path.isdir('test'):
-        print('test directory found - no need to recreate')
+        print('test directory found - no need to recreate.\n')
     else:
         os.mkdir('test')
-        print('test directory has been created')
+        print('test directory has been created.\n')
     os.chdir('test')
     if os.path.isdir('outputs'):
-        print('test outputs directory found - no need to recreate')
+        print('test outputs directory found - no need to recreate.\n')
     else:
         os.mkdir('outputs')
-        print('test outputs directory has been created')
+        print('test outputs directory has been created.\n')
     if os.path.isdir('logs'):
-        print('logs directory found - no need to recreate')
+        print('logs directory found - no need to recreate.\n')
     else:
         os.mkdir('logs')
-        print('test logs directory has been created')
+        print('test logs directory has been created.\n')
 else:
     if os.path.isdir('outputs'):
-        print('outputs directory found - no need to recreate')
+        print('outputs directory found - no need to recreate.\n')
     else:
         os.mkdir('outputs')
-        print('outputs directory has been created')
+        print('outputs directory has been created.\n')
+    if os.path.isdir('logs'):
+        print('logs directory found - no need to recreate.\n')
+    else:
+        os.mkdir('logs')
+        print('logs directory has been created.\n')
 
 #setting timestamp to calculate run time
 start_time = datetime.now() 
@@ -141,20 +142,23 @@ start_timezone_formatted = start_timezone.strftime('%Y-%m-%d %H:%M:%S %Z%z')
 today = datetime.now().strftime('%Y%m%d') 
 
 #read in email address for polite requests (required for biopython NCBI workflow, can be used for other APIs)
-email = config['EMAIL']['user_email']
+email = env['EMAIL']['user_email']
 
 #create permutation string with OR for API parameters
-ut_variations = config['PERMUTATIONS']
+ut_variations = env['PERMUTATIONS']
 institution_query = ' OR '.join([f'"{variation}"' for variation in ut_variations])
 ##if you need a smaller set of previously identified permutations for an easier API call
-ut_variations_small = config['PERMUTATIONS_IDENTIFIED']
+ut_variations_small = env['PERMUTATIONS_IDENTIFIED']
 institution_query_small = ' OR '.join([f'"{variation}"' for variation in ut_variations_small])
 
 #pull in ROR ID (necessary for Dryad API)
-ror_id = config['INSTITUTION']['ror']
+ror_id = env['INSTITUTION']['ror']
 
 #pulling in 'uniqueIdentifer' term used as quick, reliable filter ('Austin' for filtering an affiliation field for UT Austin)
-uni_identifier = config['INSTITUTION']['uniqueIdentifier']
+uni_identifier = env['INSTITUTION']['uniqueIdentifier']
+
+# Pull in map of repository names for standarization
+repo_map = env['REPOSITORY_MAPPING']
 
 #API endpoints
 url_crossref = 'https://api.crossref.org/works/'
@@ -166,21 +170,21 @@ url_openalex = 'https://api.openalex.org/works?'
 url_zenodo = 'https://zenodo.org/api/records'
 
 ##per page
-per_page_datacite = config['VARIABLES']['PAGE_SIZES']['datacite']
-per_page_dryad = config['VARIABLES']['PAGE_SIZES']['dryad']
-per_page_dataverse = config['VARIABLES']['PAGE_SIZES']['dataverse']
-per_page_zenodo = config['VARIABLES']['PAGE_SIZES']['zenodo']
+per_page_datacite = env['VARIABLES']['PAGE_SIZES']['datacite']
+per_page_dryad = env['VARIABLES']['PAGE_SIZES']['dryad']
+per_page_dataverse = env['VARIABLES']['PAGE_SIZES']['dataverse']
+per_page_zenodo = env['VARIABLES']['PAGE_SIZES']['zenodo']
 
 ##page start
-page_start_dryad = config['VARIABLES']['PAGE_STARTS']['dryad']
-page_start_dataverse = config['VARIABLES']['PAGE_STARTS']['dataverse']
-page_start_datacite = config['VARIABLES']['PAGE_STARTS']['datacite']
-page_start_zenodo = config['VARIABLES']['PAGE_STARTS']['zenodo']
+page_start_dryad = env['VARIABLES']['PAGE_STARTS']['dryad']
+page_start_dataverse = env['VARIABLES']['PAGE_STARTS']['dataverse']
+page_start_datacite = env['VARIABLES']['PAGE_STARTS']['datacite']
+page_start_zenodo = env['VARIABLES']['PAGE_STARTS']['zenodo']
 
 #page count, differ based on 'test' vs. 'prod' env
-page_limit_datacite = config['VARIABLES']['PAGE_LIMITS']['datacite_test'] if test else config['VARIABLES']['PAGE_LIMITS']['datacite_prod']
-page_limit_zenodo = config['VARIABLES']['PAGE_LIMITS']['zenodo_test'] if test else config['VARIABLES']['PAGE_LIMITS']['zenodo_prod']
-page_limit_openalex = config['VARIABLES']['PAGE_LIMITS']['openalex_test'] if test else config['VARIABLES']['PAGE_LIMITS']['openalex_prod']
+page_limit_datacite = env['VARIABLES']['PAGE_LIMITS']['datacite_test'] if test else env['VARIABLES']['PAGE_LIMITS']['datacite_prod']
+page_limit_zenodo = env['VARIABLES']['PAGE_LIMITS']['zenodo_test'] if test else env['VARIABLES']['PAGE_LIMITS']['zenodo_prod']
+page_limit_openalex = env['VARIABLES']['PAGE_LIMITS']['openalex_test'] if test else env['VARIABLES']['PAGE_LIMITS']['openalex_prod']
 
 params_dryad= {
     'per_page': per_page_dryad,
@@ -202,7 +206,7 @@ else:
     }
 
 headers_dataverse = {
-    'X-Dataverse-key': config['KEYS']['dataverseToken']
+    'X-Dataverse-key': env['KEYS']['dataverseToken']
 }
 params_dataverse = {
     'q': '10.18738/T8/',
@@ -210,19 +214,19 @@ params_dataverse = {
     #'subtree': 'utexas', 
     'type': 'dataset', #dataverse may also mint DOIs for files
     'start': page_start_dataverse,
-    'page': config['VARIABLES']['PAGE_INCREMENTS']['dataverse'],
+    'page': env['VARIABLES']['PAGE_INCREMENTS']['dataverse'],
     'per_page': per_page_dataverse
 }
 
 params_zenodo = {
     'q': f'(creators.affiliation:({institution_query_small}) OR creators.name:({institution_query_small}) OR contributors.affiliation:({institution_query_small}) OR contributors.name:({institution_query_small})) AND {zenodo_resource_type}',
     'size': per_page_zenodo,
-    'access_token': config['KEYS']['zenodoToken']
+    'access_token': env['KEYS']['zenodoToken']
 }
 
 #defining some metadata assessment objects
 ##assess 'descriptiveness of dataset title'
-words = config['WORDS']
+words = env['WORDS']
 ###add integers
 numbers = list(map(str, range(1, 1000000)))
 ###combine all into a single set
@@ -238,9 +242,9 @@ nondescriptive_words = set(
     numbers
 )
 ##software formats
-software_formats = set(config['SOFTWARE_FORMATS'].values())
+software_formats = set(env['SOFTWARE_FORMATS'].values())
 ##convert mimeType to readable format
-format_map = config['FORMAT_MAP']
+format_map = env['FORMAT_MAP']
 
 # Running script
 if not load_previous_data and not load_previous_data_plus and not load_previous_data_plus_ncbi:
@@ -381,7 +385,7 @@ if not load_previous_data and not load_previous_data_plus and not load_previous_
         })
 
     df_datacite_initial = pd.json_normalize(data_select_datacite)
-    df_datacite_initial.to_csv(f'outputs/{today}_{resource_filename}_datacite-initial-output.csv', index=False, encoding='utf-8')
+    df_datacite_initial.to_csv(f'outputs/{today}_{resource_filename}_datacite-initial-output.csv', index=False, encoding='utf-8-sig')
 
     if cross_validate:
         #first processing DataCite outputs
@@ -465,7 +469,7 @@ if not load_previous_data and not load_previous_data_plus and not load_previous_
                     'related_works': related_works_list_dr
                 })
             df_dryad = pd.json_normalize(data_select_dryad)
-            df_dryad.to_csv(f'outputs/{today}_Dryad-API-output.csv', index=False, encoding='utf-8')
+            df_dryad.to_csv(f'outputs/{today}_Dryad-API-output.csv', index=False, encoding='utf-8-sig')
             #formatting author names to be consistent with others
             df_dryad['first_author'] = df_dryad['first_author_last'] + ', ' + df_dryad['first_author_first']
             df_dryad['last_author'] = df_dryad['last_author_last'] + ', ' + df_dryad['last_author_first']
@@ -487,7 +491,7 @@ if not load_previous_data and not load_previous_data_plus and not load_previous_
             counts_dryad_datacite = df_dryad_datacite_joint['Match_entry'].value_counts()
             print(counts_dryad_datacite, '\n')
             df_dryad_datacite_joint_unmatched = df_dryad_datacite_joint[df_dryad_datacite_joint['Match_entry'] == 'Not matched']
-            df_dryad_datacite_joint_unmatched.to_csv(f'outputs/{today}_DataCite-into-Dryad_joint-unmatched-dataframe.csv', index=False, encoding='utf-8')
+            df_dryad_datacite_joint_unmatched.to_csv(f'outputs/{today}_DataCite-into-Dryad_joint-unmatched-dataframe.csv', index=False, encoding='utf-8-sig')
             df_dryad_undetected = df_dryad_datacite_joint_unmatched[['doi']]
 
             #Dryad into DataCite
@@ -497,7 +501,7 @@ if not load_previous_data and not load_previous_data_plus and not load_previous_
             counts_datacite_dryad = df_datacite_dryad_joint['Match_entry'].value_counts()
             print(counts_datacite_dryad, '\n')
             df_datacite_dryad_joint_unmatched = df_datacite_dryad_joint[df_datacite_dryad_joint['Match_entry'] == 'Not matched']
-            df_datacite_dryad_joint_unmatched.to_csv(f'outputs/{today}_Dryad-into-DataCite_joint-unmatched-dataframe.csv', index=False, encoding='utf-8')
+            df_datacite_dryad_joint_unmatched.to_csv(f'outputs/{today}_Dryad-into-DataCite_joint-unmatched-dataframe.csv', index=False, encoding='utf-8-sig')
 
         if dataverse:
             if data_dataverse:
@@ -531,7 +535,7 @@ if not load_previous_data and not load_previous_data_plus and not load_previous_
                         'dataverse': dataverse
                     })
                 df_dataverse = pd.json_normalize(data_select_dataverse)
-                df_dataverse.to_csv(f'outputs/{today}_TDR-API-output.csv', index=False, encoding='utf-8')
+                df_dataverse.to_csv(f'outputs/{today}_TDR-API-output.csv', index=False, encoding='utf-8-sig')
 
                 #subsetting for published datasets
                 df_dataverse_pub = df_dataverse[df_dataverse['status'].str.contains('RELEASED') == True]
@@ -556,7 +560,7 @@ if not load_previous_data and not load_previous_data_plus and not load_previous_
                 counts_dataverse_datacite = df_dataverse_datacite_joint['Match_entry'].value_counts()
                 print(counts_dataverse_datacite, '\n')
                 df_dataverse_datacite_joint_unmatched = df_dataverse_datacite_joint[df_dataverse_datacite_joint['Match_entry'] == 'Not matched']
-                df_dataverse_datacite_joint_unmatched.to_csv(f'outputs/{today}_DataCite-into-Dataverse_joint-unmatched-dataframe.csv', index=False, encoding='utf-8')
+                df_dataverse_datacite_joint_unmatched.to_csv(f'outputs/{today}_DataCite-into-Dataverse_joint-unmatched-dataframe.csv', index=False, encoding='utf-8-sig')
                 df_dataverse_undetected = df_dataverse_datacite_joint_unmatched[['doi']]
 
                 #Dataverse into DataCite (using de-duplicated DataCite data)
@@ -566,7 +570,7 @@ if not load_previous_data and not load_previous_data_plus and not load_previous_
                 counts_datacite_dataverse = df_datacite_dataverse_joint['Match_entry'].value_counts()
                 print(counts_datacite_dataverse, '\n')
                 df_datacite_dataverse_joint_unmatched = df_datacite_dataverse_joint[df_datacite_dataverse_joint['Match_entry'] == 'Not matched']
-                df_datacite_dataverse_joint_unmatched.to_csv(f'outputs/{today}_Dataverse-into-DataCite_joint-unmatched-dataframe.csv', index=False, encoding='utf-8')
+                df_datacite_dataverse_joint_unmatched.to_csv(f'outputs/{today}_Dataverse-into-DataCite_joint-unmatched-dataframe.csv', index=False, encoding='utf-8-sig')
 
         print('Zenodo step\n')
         if data_zenodo:
@@ -601,7 +605,7 @@ if not load_previous_data and not load_previous_data_plus and not load_previous_
                     'related_works_type': related_works_type_list_zen
                 })
             df_data_zenodo = pd.json_normalize(data_select_zenodo)
-            df_data_zenodo.to_csv(f'outputs/{today}_Zenodo-API-output.csv', index=False, encoding='utf-8')
+            df_data_zenodo.to_csv(f'outputs/{today}_Zenodo-API-output.csv', index=False, encoding='utf-8-sig')
             #removing non-Zenodo deposits indexed by Zenodo (mostly Dryad) from Zenodo output
             ##Zenodo has indexed many Dryad deposits <50 GB in size (does not issue a new DOI but does return a Zenodo 'record' in the API)
             df_data_zenodo['doi'] = df_data_zenodo['doi'].str.lower()
@@ -798,7 +802,7 @@ if not load_previous_data and not load_previous_data_plus and not load_previous_
             })
 
         df_datacite_new = pd.json_normalize(data_select_datacite_new)
-        df_datacite_new.to_csv(f'outputs/{today}_datacite-additional-cross-validation.csv', index=False, encoding='utf-8')
+        df_datacite_new.to_csv(f'outputs/{today}_datacite-additional-cross-validation.csv', index=False, encoding='utf-8-sig')
     if cross_validate:
         df_datacite_all = pd.concat([df_datacite_initial, df_datacite_new], ignore_index=True)
     else:
@@ -984,7 +988,7 @@ if not load_previous_data and not load_previous_data_plus and not load_previous_
     df_datacite = df_sorted.drop_duplicates(subset=['title', 'first_author', 'relation_type', 'related_identifier', 'container_identifier'], keep='first')
 
     #the file exported here is intended only to be used to compare affiliation source fields; the fields will be dropped in later steps in the workflow
-    df_datacite.to_csv(f'outputs/{today}_{resource_filename}_datacite-output-for-affiliation-source.csv', index=False, encoding='utf-8') 
+    df_datacite.to_csv(f'outputs/{today}_{resource_filename}_datacite-output-for-affiliation-source.csv', index=False, encoding='utf-8-sig') 
 
     #additional metadata assessment steps, fields are also dropped in later steps
     df_datacite['file_format'] = df_datacite['formats'].apply(lambda formats: ('; '.join([format_map.get(fmt, fmt) for fmt in formats])if isinstance(formats, set) else formats))        
@@ -1016,7 +1020,7 @@ if not load_previous_data and not load_previous_data_plus and not load_previous_
     df_datacite.loc[df_datacite['rights'].str.contains('UCAR'), 'rights_standardized'] = 'Custom terms'
     df_datacite.loc[df_datacite['rights'] == '', 'rights_standardized'] = 'Rights unclear'
  
-    df_datacite.to_csv(f'outputs/{today}_{resource_filename}_datacite-output-for-metadata-assessment.csv', index=False, encoding='utf-8') 
+    df_datacite.to_csv(f'outputs/{today}_{resource_filename}_datacite-output-for-metadata-assessment.csv', index=False, encoding='utf-8-sig') 
 
     #subsetting dataframe
     # df_datacite_pruned = df_datacite[['publisher', 'doi', 'publication_year', 'title', 'first_author', 'first_affiliation', 'last_author', 'last_affiliation', 'source', 'type']]
@@ -1036,23 +1040,11 @@ if not load_previous_data and not load_previous_data_plus and not load_previous_
     #standardizing repositories with multiple versions of name in dataframe
     ##different institutions may need to add additional repositories; nothing will happen if you don't have any of the ones listed below and don't comment the lines out
     df_datacite_pruned['publisher'] = df_datacite_pruned['publisher'].fillna('None')
-    df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('Digital Rocks', case=False), 'publisher'] = 'Digital Porous Media Portal'
-    df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('Environmental System Science Data Infrastructure for a Virtual Ecosystem|Southeast Texas Urban Integrated Field Laboratory', case=False), 'publisher'] = 'ESS-DIVE'
-    df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('Texas Data Repository|Texas Research Data Repository', case=False), 'publisher'] = 'Texas Data Repository'
-    df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('ICPSR', case=True), 'publisher'] = 'ICPSR'
-    df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('Environmental Molecular Sciences Laboratory', case=True), 'publisher'] = 'Environ Mol Sci Lab'
-    df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('BCO-DMO|Biological and Chemical Oceanography Data', case=True), 'publisher'] = 'Biol Chem Ocean Data Mgmt Office'
-    df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('BCO-DMO', case=True), 'publisher'] = 'Biol Chem Ocean Data Mgmt Office'
-    df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('Taylor & Francis|SAGE|The Royal Society|SciELO journals', case=True), 'publisher'] = 'figshare'
-    df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('Oak Ridge', case=True), 'publisher'] = 'Oak Ridge National Laboratory'
-    df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('PARADIM', case=True), 'publisher'] = 'PARADIM'
-    df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('4TU', case=True), 'publisher'] = '4TU.ResearchData'
-    df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('Scratchpads|Biodiversity Collection|Algae', case=True), 'publisher'] = 'Global Biodiversity Information Facility (GBIF)'
-    df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('NCAR', case=True), 'publisher'] = 'NSF NCAR Earth Observing Laboratory'
-    df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('Consortium of Universities for the Advancement of Hydrologic Science, Inc', case=False), 'publisher'] = 'CUAHSI'
-    df_datacite_pruned.loc[df_datacite_pruned['publisher'].str.contains('Bureau of Economic Geology (UT-BEG)', case=False), 'publisher'] = 'AmeriFlux'
-    df_datacite_pruned.loc[df_datacite_pruned['doi'].str.contains('zenodo', case=False), 'publisher'] = 'Zenodo'
-
+    for repository in repo_map:
+        mask = df_datacite_pruned[repository['column']].str.contains(
+            repository['pattern'], case=repository['case'], na=False
+        )
+        df_datacite_pruned.loc[mask, 'publisher'] = repository['replacement']
 
     #EDGE CASES, likely unnecessary for other universities, but you will need to find your own edge cases
     ##confusing metadata with UT Austin (but not Dataverse) listed as publisher; have to be manually adjusted over time
@@ -1063,8 +1055,8 @@ if not load_previous_data and not load_previous_data_plus and not load_previous_
 
     #adding categorization
     ##identifying institutional repositories that are not the Texas Data Repository
-    df_datacite_pruned['non_TDR_IR'] = np.where(df_datacite_pruned['publisher'].str.contains('University|UCLA|UNC|Harvard|ASU Library|Dataverse|DaRUS', case=True), 'non-TDR institutional', 'not university or TDR')
-    df_datacite_pruned['US_federal'] = np.where(df_datacite_pruned['publisher'].str.contains('NOAA|NIH|NSF|U.S.|DOE|DOD|DOI|National|Designsafe', case=True), 'Federal US repo', 'not federal US repo')
+    df_datacite_pruned['non_TDR_IR'] = np.where(df_datacite_pruned['publisher'].str.contains('University|UCLA|UNC|Harvard|Princeton|Johns Hopkins|Caltech|CUHK|Wyoming|Yale|ASU Library|Dataverse|DaRUS', case=True), 'non-TDR institutional', 'not university or TDR')
+    df_datacite_pruned['US_federal'] = np.where(df_datacite_pruned['publisher'].str.contains('NOAA|NIH|NSF|U.S.|DOE|DOD|DOI|National Laboratory|Designsafe|MSD-Live', case=True), 'Federal US repo', 'not federal US repo')
     df_datacite_pruned['GREI'] = np.where(df_datacite_pruned['publisher'].str.contains('Dryad|figshare|Harvard|Zenodo|Vivli|Mendeley|Open Science Framework', case=False), 'GREI member', 'not GREI member')
     generalist_keywords = 'Dryad|figshare|Zenodo|Mendeley|Open Science Framework|Science Data Bank'
     institutional_keywords = 'ASU Library|Boise State|Borealis|Caltech|CUHK|Dataverse|Oregon|Princeton|University|Wyoming|DaRUS|Texas|Institut Laue-Langevin|Jagiellonian|Hopkins|Purdue|Yale|GRO.data|DR-NTU|CUAHSI'
@@ -1132,9 +1124,9 @@ if not load_previous_data and not load_previous_data_plus and not load_previous_
     df_researchers_unique['name_count'] = df_researchers_unique['researcher_standardized'].map(df_researchers_pruned.groupby('researcher_standardized')['researcher'].nunique())
     df_researchers_unique['repository_count'] = df_researchers_unique['researcher_standardized'].map(df_researchers_pruned.groupby('researcher_standardized')['repository'].nunique())
 
-    df_researchers_unique.to_csv(f'outputs/{today}_{resource_filename}_unique-affiliated-researchers.csv', index=False, encoding='utf-8')
+    df_researchers_unique.to_csv(f'outputs/{today}_{resource_filename}_unique-affiliated-researchers.csv', index=False, encoding='utf-8-sig')
 
-    df_datacite_pruned.to_csv(f'outputs/{today}_{resource_filename}_full-concatenated-dataframe.csv', index=False, encoding='utf-8')
+    df_datacite_pruned.to_csv(f'outputs/{today}_{resource_filename}_full-concatenated-dataframe.csv', index=False, encoding='utf-8-sig')
 
 ###### FIGSHARE WORKFLOW ######
 #These sections are for cleaning up identified figshare deposits or identifying associated ones that lack affiliation metadata
@@ -1164,10 +1156,10 @@ if load_previous_data:
 if figshare_workflow_1:
 
     #figshare DOIs sometimes have a .v* for version number; this toggles whether to include them (True) or only include the parent (False)
-    countVersions = config['TOGGLES']['figshare_versions']
+    countVersions = env['TOGGLES']['figshare_versions']
 
     #pull in map of publisher names and OpenAlex codes
-    publisher_mapping = config['FIGSHARE_PARTNERS']
+    publisher_mapping = env['FIGSHARE_PARTNERS']
     #create empty object to store results
     data_select_datacite = [] 
     data_select_openalex = []
@@ -1177,31 +1169,31 @@ if figshare_workflow_1:
             #update both params for each publisher in map
             params_openalex = {
             'filter': f'authorships.institutions.ror:https://ror.org/00hj54h04,type:article,from_publication_date:2000-01-01,locations.source.host_organization:{openalex_code}',
-            'per_page': config['VARIABLES']['PAGE_SIZES']['openalex'],
+            'per_page': env['VARIABLES']['PAGE_SIZES']['openalex'],
             'select': 'id,doi,title,authorships,publication_year,primary_location,type',
-            'mailto': config['EMAIL']['user_email']
+            'mailto': env['EMAIL']['user_email']
             }
             j = 0
             #define different number of pages to retrieve from OpenAlex API based on 'test' vs. 'prod' env
-            page_limit_openalex = config['VARIABLES']['PAGE_LIMITS']['openalex_test'] if test else config['VARIABLES']['PAGE_LIMITS']['openalex_prod']
+            page_limit_openalex = env['VARIABLES']['PAGE_LIMITS']['openalex_test'] if test else env['VARIABLES']['PAGE_LIMITS']['openalex_prod']
             #DataCite params (different from general affiliation-based retrieval params)
             ## !! Warning: if you do not set a resource_type in the query (recommended if you want to get broad coverage), this will be a very large retrieval. In the test env, there may not be enough records to find a match with a university-affiliated article !!
             
             #reset to default after large-scale general retrieval through DataCite
-            page_limit_datacite = config['VARIABLES']['PAGE_LIMITS']['datacite_test'] if test else config['VARIABLES']['PAGE_LIMITS']['datacite_prod']
-            page_start_datacite = config['VARIABLES']['PAGE_STARTS']['datacite']
+            page_limit_datacite = env['VARIABLES']['PAGE_LIMITS']['datacite_test'] if test else env['VARIABLES']['PAGE_LIMITS']['datacite_prod']
+            page_start_datacite = env['VARIABLES']['PAGE_STARTS']['datacite']
             if figshare_resource_type_filter:
                 params_datacite_figshare = {
                     # 'affiliation': 'true',
                     'query': f'(publisher:"{publisher_name}" AND types.resourceTypeGeneral:{figshare_datacite_resource_type})',
-                    'page[size]': config['VARIABLES']['PAGE_SIZES']['datacite'],
+                    'page[size]': env['VARIABLES']['PAGE_SIZES']['datacite'],
                     'page[cursor]': 1,
                 }
             else:
                 params_datacite_figshare = {
                 # 'affiliation': 'true',
                 'query': f'(publisher:"{publisher_name}")',
-                'page[size]': config['VARIABLES']['PAGE_SIZES']['datacite'],
+                'page[size]': env['VARIABLES']['PAGE_SIZES']['datacite'],
                 'page[cursor]': 1,
                 }
 
@@ -1390,7 +1382,7 @@ if figshare_workflow_1:
             continue 
 
     df_datacite_initial = pd.json_normalize(data_select_datacite)
-    df_datacite_initial.to_csv(f'outputs/{today}_{figshare_resource_filename}_figshare-discovery-initial.csv', index=False, encoding='utf-8')
+    df_datacite_initial.to_csv(f'outputs/{today}_{figshare_resource_filename}_figshare-discovery-initial.csv', index=False, encoding='utf-8-sig')
 
     if countVersions:
         ##These steps will count different versions as distinct datasets and remove the 'parent' (redundant with most recent version)
@@ -1411,19 +1403,19 @@ if figshare_workflow_1:
     df_openalex = pd.json_normalize(data_select_openalex)
     df_openalex['related_identifier'] = df_openalex['doi_article'].str.replace('https://doi.org/', '')
     df_openalex = df_openalex.drop_duplicates(subset='doi_article', keep='first')
-    df_openalex.to_csv(f'outputs/{today}_openalex-articles.csv', index=False, encoding='utf-8')
+    df_openalex.to_csv(f'outputs/{today}_openalex-articles.csv', index=False, encoding='utf-8-sig')
 
     #output all UT linked deposits, no deduplication (for Figshare validator workflow)
     df_openalex_datacite = pd.merge(df_openalex, df_datacite_supplement, on='related_identifier', how='left')
     df_openalex_datacite = df_openalex_datacite[df_openalex_datacite['doi'].notnull()]
-    df_openalex_datacite.to_csv(f'outputs/{today}_{figshare_resource_filename}_figshare-discovery-affiliated.csv', index=False, encoding='utf-8')
+    df_openalex_datacite.to_csv(f'outputs/{today}_{figshare_resource_filename}_figshare-discovery-affiliated.csv', index=False, encoding='utf-8-sig')
     df_openalex_datacite = df_openalex_datacite.drop_duplicates(subset='related_identifier', keep='first')
 
     #working with deduplicated dataset for rest of process
     df_openalex_datacite_dedup = pd.merge(df_openalex, df_datacite_supplement_dedup, on='related_identifier', how='left')
     new_figshare = df_openalex_datacite_dedup[df_openalex_datacite_dedup['doi'].notnull()]
     new_figshare = new_figshare.drop_duplicates(subset='doi', keep='first')
-    new_figshare.to_csv(f'outputs/{today}_{figshare_resource_filename}_figshare-discovery-affiliated-deduplicated.csv', index=False, encoding='utf-8')
+    new_figshare.to_csv(f'outputs/{today}_{figshare_resource_filename}_figshare-discovery-affiliated-deduplicated.csv', index=False, encoding='utf-8-sig')
 
     ##currently not pruning to maximize metadata retention for internal processes
     # new_figshare = new_figshare[['doi','publication_year','title', 'first_author', 'first_affiliation', 'last_author', 'last_affiliation', 'type']]
@@ -1484,42 +1476,42 @@ if figshare_workflow_1:
     df_datacite_plus = pd.concat([df_datacite_pruned, new_figshare], ignore_index=True)
     #de-duplicating in case some DOIs were caught twice (for the few publishers that do cross-walk affiliation metadata), you could use a sorting method to determine which one to 'keep'; the default will retain the ones returned from the main workflow
     df_datacite_plus_dedup = df_datacite_plus.drop_duplicates(subset='doi', keep='first')
-    df_datacite_plus_dedup.to_csv(f'outputs/{today}_{resource_filename}_full-concatenated-dataframe-plus-figshare.csv', index=False, encoding='utf-8')
+    df_datacite_plus_dedup.to_csv(f'outputs/{today}_{resource_filename}_full-concatenated-dataframe-plus-figshare.csv', index=False, encoding='utf-8-sig')
 
 ### This codeblock identifies publishers known to create figshare deposits (can be any object resource type) with a '.s00*' system, finds affiliated articles, constructs a hypothetical figshare DOI for them, and tests its existence ###
 # !! Warning: Depending on the number of articles, this can be an extremely time-intensive process !! #
 
 if figshare_workflow_2:
     #toggle to select which indexer to use: 'OpenAlex' or 'Crossref'
-    indexer = config['TOGGLES']['figshare_workflow_2_indexer']
+    indexer = env['TOGGLES']['figshare_workflow_2_indexer']
 
     #OpenAlex params
     j = 0
     if test:
-        page_limit_openalex = config['VARIABLES']['PAGE_LIMITS']['openalex_test']
+        page_limit_openalex = env['VARIABLES']['PAGE_LIMITS']['openalex_test']
     else:
-        page_limit_openalex = config['VARIABLES']['PAGE_LIMITS']['openalex_prod']
+        page_limit_openalex = env['VARIABLES']['PAGE_LIMITS']['openalex_prod']
 
     #Crossref params
     k = 0
     if test:
-        page_limit_crossref = config['VARIABLES']['PAGE_LIMITS']['crossref_test']
+        page_limit_crossref = env['VARIABLES']['PAGE_LIMITS']['crossref_test']
     else:
-        page_limit_crossref = config['VARIABLES']['PAGE_LIMITS']['crossref_prod']
+        page_limit_crossref = env['VARIABLES']['PAGE_LIMITS']['crossref_prod']
     params_crossref_journal = {
         'select': 'DOI,prefix,title,author,container-title,publisher,created',
         'filter': 'type:journal-article',
-        'rows': config['VARIABLES']['PAGE_SIZES']['crossref'],
+        'rows': env['VARIABLES']['PAGE_SIZES']['crossref'],
         'query': 'affiliation:University+Texas+Austin',
-        'mailto': config['EMAIL']['user_email'],
+        'mailto': env['EMAIL']['user_email'],
         'cursor': '*',
     }
 
     params_openalex = {
         'filter': 'authorships.institutions.ror:https://ror.org/00hj54h04,locations.source.host_organization:https://openalex.org/P4310315706', #PLOS ID in OpenAlex
-        'per-page': config['VARIABLES']['PAGE_SIZES']['openalex'],
+        'per-page': env['VARIABLES']['PAGE_SIZES']['openalex'],
         'select': 'id,doi,title,authorships,primary_location,type',
-        'mailto': config['EMAIL']['user_email']
+        'mailto': env['EMAIL']['user_email']
     }
 
     #JSON dictionary of journals for Crossref API query (PLOS in this example)
@@ -1533,7 +1525,7 @@ if figshare_workflow_2:
         
         #Check if each DOI with suffix redirects to a real page and create a new column
         df_openalex['Valid'] = df_openalex['hypothetical_dataset'].apply(check_link)
-        df_openalex.to_csv(f'outputs/{today}_openalex-articles-with-hypothetical-deposits.csv', index=False, encoding='utf-8')
+        df_openalex.to_csv(f'outputs/{today}_openalex-articles-with-hypothetical-deposits.csv', index=False, encoding='utf-8-sig')
         print(f'Number of valid datasets: {len(df_openalex)}.')
     else:
         crossref_data = retrieve_all_journals(url_crossref_issn, journal_list, params_crossref_journal, page_limit_crossref, retrieve_crossref)
@@ -1564,7 +1556,7 @@ if figshare_workflow_2:
 
         # Check if each DOI with suffix redirects to a real page and create a new column
         df_crossref['Valid'] = df_crossref['hypothetical_dataset'].apply(check_link)
-        df_crossref.to_csv(f'outputs/{today}_crossref-articles-with-hypothetical-deposits.csv', index=False, encoding='utf-8')
+        df_crossref.to_csv(f'outputs/{today}_crossref-articles-with-hypothetical-deposits.csv', index=False, encoding='utf-8-sig')
         print(f'Number of valid datasets: {len(df_crossref)}.')
 
 ##### NCBI Bioproject #####
@@ -1598,9 +1590,9 @@ if ncbi_workflow:
         existingOutput = False
         print(f'No file with "{pattern}" was found in the directory "{directory}".')
 
-    #read in config file
+    #read in env file
     if not load_ncbi_data:
-        institution_name = config['INSTITUTION']['name']
+        institution_name = env['INSTITUTION']['name']
         #URL encode name
         encoded_institution_name = quote(institution_name)
         if not biopython:
@@ -1673,7 +1665,7 @@ if ncbi_workflow:
             #if you get a free API key, increases rate limit from 3/sec to 10/sec
             #Entrez.api_key = 'YOUR_NCBI_API_KEY'
 
-            search_term = config['INSTITUTION']['name'] #check that this string is the right one in the web interface
+            search_term = env['INSTITUTION']['name'] #check that this string is the right one in the web interface
             handle = Entrez.esearch(db='bioproject', term=search_term, usehistory='y', retmax=1200) #currently at 955
             record = Entrez.read(handle)
             handle.close()
@@ -1682,17 +1674,17 @@ if ncbi_workflow:
             query_key = record['QueryKey']
 
             handle = Entrez.efetch(db='bioproject', query_key=query_key, WebEnv=webenv, retmode='xml')
-            xml_data = handle.read().decode('utf-8')
+            xml_data = handle.read().decode('utf-8-sig')
             handle.close()
 
-            with open(f'{outputs_dir}/bioproject_result.xml', 'w', encoding='utf-8') as f:
+            with open(f'{outputs_dir}/bioproject_result.xml', 'w', encoding='utf-8-sig') as f:
                 f.write(xml_data)
 
             print(f'Saved XML record to "{outputs_dir}/bioproject_result.xml"')
 
     #read in XML file (required regardless of whether you downloaded version in this run or not)
     print('Loading previously generated XML file.\n')
-    with open(f'{outputs_dir}/bioproject_result.xml', 'r', encoding='utf-8') as file:
+    with open(f'{outputs_dir}/bioproject_result.xml', 'r', encoding='utf-8-sig') as file:
         data = file.read()
 
     #wrapping in a root element for parsing if from Selenium output
@@ -1746,7 +1738,7 @@ if ncbi_workflow:
     #dataframe conversion and standardization for alignment with main dataframe
     ncbi = pd.DataFrame(data_list)
     ncbi['publication_year'] = pd.to_datetime(ncbi['publication_date']).dt.year
-    ##look for one of the permutation strings listed in config.json
+    ##look for one of the permutation strings listed in env.json
     ncbi['first_affiliation'] = ncbi.apply(lambda row: next((perm for perm in ut_variations if perm in row['Affiliation']), None), axis=1)
 
     ##removing hits that have one of the keywords in a different field like the title
@@ -1800,7 +1792,6 @@ if ncbi_workflow:
     ncbi_df_select['type_reclassified'] = 'Dataset'
     ncbi_df_select['doi_article'] = 'Not applicable' #filler to match Figshare workflow, no equivalent process or field
     ncbi_df_select['title_article'] = 'Not applicable' #filler to match Figshare workflow, no equivalent process or field
-    ncbi_df_select['publication_year'] = 'Not applicable' #filler to match Figshare workflow, no equivalent process or field
     ncbi_df_select['journal'] = 'Not applicable' #filler to match Figshare workflow, no equivalent process or field
     ncbi_df_select['related_identifier_type'] = 'Not applicable' #filler to match Figshare workflow, no equivalent process or field
 
@@ -1826,9 +1817,9 @@ if ncbi_workflow:
             print(f'No file with "{pattern}" was found in the directory "{directory}".')
 
     df_datacite_plus_ncbi = pd.concat([df_datacite_plus_dedup, ncbi_df_select], ignore_index=True)
-    df_datacite_plus_ncbi.to_csv(f'outputs/{today}_{resource_filename}_full-concatenated-dataframe-plus-figshare-ncbi.csv', index=False, encoding='utf-8')
+    df_datacite_plus_ncbi.to_csv(f'outputs/{today}_{resource_filename}_full-concatenated-dataframe-plus-figshare-ncbi.csv', index=False, encoding='utf-8-sig')
 
-    # ncbi_df_select.to_csv(f'outputs/{today}_NCBI-select-output-aligned.csv', index=False, encoding='utf-8')
+    # ncbi_df_select.to_csv(f'outputs/{today}_NCBI-select-output-aligned.csv', index=False, encoding='utf-8-sig')
 
 #to load in externally queried Crossref data
 if any([load_previous_data, load_previous_data_plus, load_previous_data_plus_ncbi]) and load_crossref:
@@ -1837,7 +1828,7 @@ if any([load_previous_data, load_previous_data_plus, load_previous_data_plus_ncb
     if load_previous_data_plus_ncbi: 
         pattern = '_full-concatenated-dataframe-plus-figshare-ncbi.csv'
     elif load_previous_data_plus:
-        pattern = '_full-concatenated-dataframe-plus.csv'
+        pattern = '_full-concatenated-dataframe-plus-figshare.csv'
     elif load_previous_data:
         pattern = '_full-concatenated-dataframe.csv'
 
@@ -1851,7 +1842,7 @@ if any([load_previous_data, load_previous_data_plus, load_previous_data_plus_ncb
 
     if latest_file:
         file_path = os.path.join(directory, latest_file)
-        df_datacite_plus_ncbi = pd.read_csv(file_path)
+        df_datacite_plus = pd.read_csv(file_path)
         print(f'The most recent file "{latest_file}" has been loaded successfully.')
     else:
         print(f'No file with "{pattern}" was found in the directory "{directory}".')
@@ -1879,19 +1870,19 @@ if any([load_previous_data, load_previous_data_plus, load_previous_data_plus_ncb
 
     if load_previous_data:
         df_datacite_plus_crossref = pd.concat([df_datacite_pruned, crossref_true_datasets], ignore_index=True)
-        df_datacite_plus_crossref.to_csv(f'outputs/{today}_{resource_filename}_full-concatenated-dataframe-plus-crossref.csv', index=False, encoding='utf-8')
+        df_datacite_plus_crossref.to_csv(f'outputs/{today}_{resource_filename}_full-concatenated-dataframe-plus-crossref.csv', index=False, encoding='utf-8-sig')
     elif load_previous_data_plus:
         df_datacite_plus_crossref = pd.concat([df_datacite_plus, crossref_true_datasets], ignore_index=True)
-        df_datacite_plus_crossref.to_csv(f'outputs/{today}_{resource_filename}_full-concatenated-dataframe-plus-figshare-crossref.csv', index=False, encoding='utf-8')
+        df_datacite_plus_crossref.to_csv(f'outputs/{today}_{resource_filename}_full-concatenated-dataframe-plus-figshare-crossref.csv', index=False, encoding='utf-8-sig')
     elif load_previous_data_plus_ncbi:
         df_datacite_plus_crossref = pd.concat([df_datacite_plus_ncbi, crossref_true_datasets], ignore_index=True)
-        df_datacite_plus_crossref.to_csv(f'outputs/{today}_{resource_filename}_full-concatenated-dataframe-plus-figshare-ncbi-crossref.csv', index=False, encoding='utf-8')
+        df_datacite_plus_crossref.to_csv(f'outputs/{today}_{resource_filename}_full-concatenated-dataframe-plus-figshare-ncbi-crossref.csv', index=False, encoding='utf-8-sig')
     elif not load_previous_data and not load_previous_data and not figshare_workflow_1:
         df_datacite_plus_crossref = pd.concat([df_datacite_pruned, crossref_true_datasets], ignore_index=True)
-        df_datacite_plus_crossref.to_csv(f'outputs/{today}_{resource_filename}_full-concatenated-dataframe-plus-crossref.csv', index=False, encoding='utf-8')
+        df_datacite_plus_crossref.to_csv(f'outputs/{today}_{resource_filename}_full-concatenated-dataframe-plus-crossref.csv', index=False, encoding='utf-8-sig')
     elif not load_previous_data and not load_previous_data and figshare_workflow_1:
         df_datacite_plus_crossref = pd.concat([df_datacite_plus, crossref_true_datasets], ignore_index=True)
-        df_datacite_plus_crossref.to_csv(f'outputs/{today}_{resource_filename}_full-concatenated-dataframe-plus-figshare-crossref.csv', index=False, encoding='utf-8')
+        df_datacite_plus_crossref.to_csv(f'outputs/{today}_{resource_filename}_full-concatenated-dataframe-plus-figshare-crossref.csv', index=False, encoding='utf-8-sig')
 
 if not any([load_previous_data, load_previous_data_plus, load_previous_data_plus_ncbi]) and load_crossref:
     print('\nReading in existing Crossref output file\n')
@@ -1915,21 +1906,21 @@ if not any([load_previous_data, load_previous_data_plus, load_previous_data_plus
 
     if not df_datacite_pruned.empty and df_datacite_plus_dedup.empty:
         df_datacite_plus_crossref = pd.concat([df_datacite_pruned, crossref_true_datasets], ignore_index=True)
-        df_datacite_plus_crossref.to_csv(f'outputs/{today}_{resource_filename}_full-concatenated-dataframe-plus-crossref.csv', index=False, encoding='utf-8')
+        df_datacite_plus_crossref.to_csv(f'outputs/{today}_{resource_filename}_full-concatenated-dataframe-plus-crossref.csv', index=False, encoding='utf-8-sig')
     elif not df_datacite_plus_dedup.empty and df_datacite_plus_ncbi.empty:
         df_datacite_plus_crossref = pd.concat([df_datacite_plus, crossref_true_datasets], ignore_index=True)
-        df_datacite_plus_crossref.to_csv(f'outputs/{today}_{resource_filename}_full-concatenated-dataframe-plus-figshare-crossref.csv', index=False, encoding='utf-8')
+        df_datacite_plus_crossref.to_csv(f'outputs/{today}_{resource_filename}_full-concatenated-dataframe-plus-figshare-crossref.csv', index=False, encoding='utf-8-sig')
     elif not df_datacite_plus_ncbi.empty:
         df_datacite_plus_crossref = pd.concat([df_datacite_plus_ncbi, crossref_true_datasets], ignore_index=True)
-        df_datacite_plus_crossref.to_csv(f'outputs/{today}_{resource_filename}_full-concatenated-dataframe-plus-figshare-ncbi-crossref.csv', index=False, encoding='utf-8')
+        df_datacite_plus_crossref.to_csv(f'outputs/{today}_{resource_filename}_full-concatenated-dataframe-plus-figshare-ncbi-crossref.csv', index=False, encoding='utf-8-sig')
 
 runtime = datetime.now() - start_time
 
 print('Dataframe processing completed, beginning log writing.\n')
 
-def log_selected_config(config, keys, file):
+def log_selected_env(env, keys, file):
     for key in keys:
-        value = config.get(key)
+        value = env.get(key)
         if value is not None:
             if isinstance(value, dict):
                 # Pretty-print the nested dict
@@ -1940,28 +1931,28 @@ def log_selected_config(config, keys, file):
 #writes one file specific to this run:
 unique_timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
 with open(f'logs/{unique_timestamp}-log.txt', 'w') as resultssummaryfile:
-    resultssummaryfile.write(f'Affiliated research object discovery for: {config['INSTITUTION']['name']}, run on {start_timezone_formatted} for {runtime} (hours:minutes:seconds.milliseconds).\n\n')
-    resultssummaryfile.write(f'User: {config['EMAIL']['user_email']}\n\n')
+    resultssummaryfile.write(f'Affiliated research object discovery for: {env['INSTITUTION']['name']}, run on {start_timezone_formatted} for {runtime} (hours:minutes:seconds.milliseconds).\n\n')
+    resultssummaryfile.write(f'User: {env['EMAIL']['user_email']}\n\n')
 
-    env = 'test' if config['TOGGLES']['test'] else 'production'
-    cross = 'with cross-validation' if config['TOGGLES']['cross_validate'] else 'without cross-validation'
-    dataverse = 'included the Dataverse API' if config['TOGGLES']['dataverse_duplicates'] else 'did not include the Dataverse API'
-    dataversededup = 'with dataverse deduplication' if config['TOGGLES']['dataverse_duplicates'] else 'without dataverse deduplication'
-    figshare1 = 'with the first secondary figshare workflow' if config['TOGGLES']['figshare_workflow_1'] else 'without the first secondary figshare workflow'
-    figshare2 = 'with the second secondary figshare workflow' if config['TOGGLES']['figshare_workflow_2'] else 'without the second secondary figshare workflow'
-    figshareVers = 'removing versions for multi-version deposits' if config['TOGGLES']['figshare_versions'] else 'retaining versions for multi-version deposits'
-    ncbi = 'with the secondary NCBI workflow' if config['TOGGLES']['ncbi_workflow'] else 'without the secondary NCBI workflow'
-    biopy = 'using the biopython module' if config['TOGGLES']['biopython'] else 'using the Selenium approach'
-    loadPrev = 'previous primary output was loaded' if config['TOGGLES']['load_previous_data'] else 'previous primary output was not loaded'
-    loadPrevPlus = 'previous primary output with secondary Figshare data was loaded' if config['TOGGLES']['load_previous_data_plus'] else 'previous primary output with secondary Figshare data was not loaded'
-    loadPrevPlusNCBI = 'previous primary output with secondary Figshare and NCBI data was loaded' if config['TOGGLES']['load_previous_data_plus_ncbi'] else 'previous primary output with secondary Figshare and NCBI data was not loaded'
-    loadCross = 'separate Crossref output was loaded' if config['TOGGLES']['load_crossref'] else 'separate Crossref output was not loaded'
+    env = 'test' if env['TOGGLES']['test'] else 'production'
+    cross = 'with cross-validation' if env['TOGGLES']['cross_validate'] else 'without cross-validation'
+    dataverse = 'included the Dataverse API' if env['TOGGLES']['dataverse_duplicates'] else 'did not include the Dataverse API'
+    dataversededup = 'with dataverse deduplication' if env['TOGGLES']['dataverse_duplicates'] else 'without dataverse deduplication'
+    figshare1 = 'with the first secondary figshare workflow' if env['TOGGLES']['figshare_workflow_1'] else 'without the first secondary figshare workflow'
+    figshare2 = 'with the second secondary figshare workflow' if env['TOGGLES']['figshare_workflow_2'] else 'without the second secondary figshare workflow'
+    figshareVers = 'removing versions for multi-version deposits' if env['TOGGLES']['figshare_versions'] else 'retaining versions for multi-version deposits'
+    ncbi = 'with the secondary NCBI workflow' if env['TOGGLES']['ncbi_workflow'] else 'without the secondary NCBI workflow'
+    biopy = 'using the biopython module' if env['TOGGLES']['biopython'] else 'using the Selenium approach'
+    loadPrev = 'previous primary output was loaded' if env['TOGGLES']['load_previous_data'] else 'previous primary output was not loaded'
+    loadPrevPlus = 'previous primary output with secondary Figshare data was loaded' if env['TOGGLES']['load_previous_data_plus'] else 'previous primary output with secondary Figshare data was not loaded'
+    loadPrevPlusNCBI = 'previous primary output with secondary Figshare and NCBI data was loaded' if env['TOGGLES']['load_previous_data_plus_ncbi'] else 'previous primary output with secondary Figshare and NCBI data was not loaded'
+    loadCross = 'separate Crossref output was loaded' if env['TOGGLES']['load_crossref'] else 'separate Crossref output was not loaded'
 
     resultssummaryfile.write(f'Short summary: The script was run in {env} mode and applied a filter to search for {resource_filename} objects. The initial search was performed {cross}, which was itself performed {dataverse} and {dataversededup}. The script was run {figshare1}, with a filter to search for {figshare_resource_filename}; {figshare2}; and {ncbi}, {biopy}. The {loadPrev}; the {loadPrevPlus}; the {loadPrevPlusNCBI}; and the {loadCross}. \n\n')
 
-    #writes select fields from the config.json file
+    #writes select fields from the env.json file
     fields_to_log = ['TOGGLES', 'VARIABLES', 'PERMUTATIONS', 'FIGSHARE_PARTNERS']
-    log_selected_config(config, fields_to_log, resultssummaryfile)
+    log_selected_env(env, fields_to_log, resultssummaryfile)
     resultssummaryfile.write('\n')
 
 #writes to master CSV file
@@ -1975,24 +1966,24 @@ log_entry = {
     'script_name': os.path.basename(__file__),
     'timestamp': start_timezone_formatted,
     'runtime': runtime,
-    'institution': config['INSTITUTION']['name'],
-    'user': config['EMAIL']['user_email'],
-    'test_mode': config['TOGGLES']['test'],
-    'cross-validation': config['TOGGLES']['cross_validate'],
-    'dataverse_deduplication': config['TOGGLES']['dataverse_duplicates'],
-    'figshare1': config['TOGGLES']['figshare_workflow_1'],
-    'figshare2': config['TOGGLES']['figshare_workflow_2'],
-    'figshare_versions': config['TOGGLES']['figshare_versions'],
-    'ncbi': config['TOGGLES']['ncbi_workflow'],
+    'institution': env['INSTITUTION']['name'],
+    'user': env['EMAIL']['user_email'],
+    'test_mode': env['TOGGLES']['test'],
+    'cross-validation': env['TOGGLES']['cross_validate'],
+    'dataverse_deduplication': env['TOGGLES']['dataverse_duplicates'],
+    'figshare1': env['TOGGLES']['figshare_workflow_1'],
+    'figshare2': env['TOGGLES']['figshare_workflow_2'],
+    'figshare_versions': env['TOGGLES']['figshare_versions'],
+    'ncbi': env['TOGGLES']['ncbi_workflow'],
     'ncbi_method':'Not applicable'
-        if not config['TOGGLES']['ncbi_workflow']
+        if not env['TOGGLES']['ncbi_workflow']
         else 'BioPython'
-        if config['TOGGLES']['biopython']
+        if env['TOGGLES']['biopython']
         else 'Selenium',
-    'loadedPrevious': config['TOGGLES']['load_previous_data'],
-    'loadedPreviousPlus': config['TOGGLES']['load_previous_data_plus'],
-    'loadedPreviousPlusNCBI': config['TOGGLES']['load_previous_data_plus_ncbi'],
-    'loadedCrossref': config['TOGGLES']['load_crossref']
+    'loadedPrevious': env['TOGGLES']['load_previous_data'],
+    'loadedPreviousPlus': env['TOGGLES']['load_previous_data_plus'],
+    'loadedPreviousPlusNCBI': env['TOGGLES']['load_previous_data_plus_ncbi'],
+    'loadedCrossref': env['TOGGLES']['load_crossref']
 }
 
 try:

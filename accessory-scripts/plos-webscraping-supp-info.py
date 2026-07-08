@@ -12,20 +12,20 @@ utils_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, utils_dir) 
 from utils import retrieve_openalex 
 
-#read in config file
+#read in env file
 parent = os.path.abspath(os.path.join(os.getcwd(), '..'))
-with open(f'{parent}/config.json', 'r') as file:
-    config = json.load(file)
+with open(f'{parent}/env.json', 'r') as file:
+    env = json.load(file)
 
 #operator for quick test runs
-test = config['TOGGLES']['test']
+test = env['TOGGLES']['test']
 #setting timestamp to calculate run time
 startTime = datetime.now() 
 #creating variable with current date for appending to filenames
 todayDate = datetime.now().strftime('%Y%m%d') 
 
 #pull in ROR ID
-ror_id = config['INSTITUTION']['ror']
+ror_id = env['INSTITUTION']['ror']
 
 #creating directories
 if test:
@@ -51,13 +51,13 @@ url_openalex = 'https://api.openalex.org/works'
 
 params_openalex = {
     'filter': f'authorships.institutions.ror:{ror_id},type:article,from_publication_date:2000-01-01,locations.source.host_organization:https://openalex.org/publishers/p4310315706',
-    'per-page': config['VARIABLES']['PAGE_SIZES']['openalex'],
+    'per-page': env['VARIABLES']['PAGE_SIZES']['openalex'],
     'select': 'id,doi,title,authorships,primary_location,type',
-    'mailto': config['EMAIL']['user_email']
+    'mailto': env['EMAIL']['user_email']
     }
 j = 0
 #define different number of pages to retrieve from OpenAlex API based on 'test' vs. 'prod' env
-page_limit_openalex = config['VARIABLES']['PAGE_LIMITS']['openalex_test'] if test else config['VARIABLES']['PAGE_LIMITS']['openalex_prod']
+page_limit_openalex = env['VARIABLES']['PAGE_LIMITS']['openalex_test'] if test else env['VARIABLES']['PAGE_LIMITS']['openalex_prod']
 
 openalex = retrieve_openalex(url_openalex, params_openalex, page_limit_openalex)
 data_select_openalex = []

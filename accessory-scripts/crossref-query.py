@@ -5,18 +5,18 @@ import os
 import sys
 from datetime import datetime
 
-#call functions from parent utils.py file
+# Call functions from parent utils.py file
 utils_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, utils_dir) 
 from utils import adjust_descriptive_count, count_words, determine_affiliation, retrieve_crossref 
 
-#read in config file
+#read in env file
 parent = os.path.abspath(os.path.join(os.getcwd(), '..'))
-with open(f'{parent}/config.json', 'r') as file:
-    config = json.load(file)
+with open(f'{parent}/env.json', 'r') as file:
+    env = json.load(file)
 
 #operator for quick test runs
-test = config['TOGGLES']['test']
+test = env['TOGGLES']['test']
 #operator for resource type(s) to query for (use '|' for Boolean OR)
 resource_type = 'dataset'
 #toggle to disable resource type filter
@@ -27,9 +27,9 @@ start_time = datetime.now()
 today_date = datetime.now().strftime('%Y%m%d') 
 
 #load institutional name permutations
-ut_variations = config['PERMUTATIONS']
+ut_variations = env['PERMUTATIONS']
 #load institution string for filenames
-institution = config['INSTITUTION']['filename']
+institution = env['INSTITUTION']['filename']
 
 #creating directories
 if test:
@@ -52,26 +52,26 @@ else:
         print('accessory outputs directory has been created')
 
 url_crossref = "https://api.crossref.org/works?"
-page_limit_crossref = config['VARIABLES']['PAGE_LIMITS']['crossref_test'] if test else config['VARIABLES']['PAGE_LIMITS']['crossref_prod']
+page_limit_crossref = env['VARIABLES']['PAGE_LIMITS']['crossref_test'] if test else env['VARIABLES']['PAGE_LIMITS']['crossref_prod']
 if resource_filter:
     params_crossref = {
         'filter': f'type:{resource_type}',
-        'rows': config['VARIABLES']['PAGE_SIZES']['crossref'], 
+        'rows': env['VARIABLES']['PAGE_SIZES']['crossref'], 
         'query.affiliation': "university+of+texas+austin",
         'cursor': '*',
-        'mailto': config['EMAIL']['user_email'] #to access polite pool
+        'mailto': env['EMAIL']['user_email'] #to access polite pool
     }
 else:
     params_crossref = {
-        'rows': config['VARIABLES']['PAGE_SIZES']['crossref'], 
+        'rows': env['VARIABLES']['PAGE_SIZES']['crossref'], 
         'query.affiliation': "university+of+texas+austin",
         'cursor': '*',
-        'mailto': config['EMAIL']['user_email'] #to access polite pool
+        'mailto': env['EMAIL']['user_email'] #to access polite pool
     }
 
 #defining some metadata assessment objects
 ##assess 'descriptiveness of dataset title'
-words = config['WORDS']
+words = env['WORDS']
 ###add integers
 numbers = list(map(str, range(1, 1000000)))
 ###combine all into a single set
