@@ -14,10 +14,10 @@ start_time = datetime.now()
 #creating variable with current date for appending to filenames
 today_date = datetime.now().strftime("%Y%m%d") 
 
-#read in config file
+#read in env file
 parent = os.path.abspath(os.path.join(os.getcwd(), '..'))
-with open(f'{parent}/config.json', 'r') as file:
-    config = json.load(file)
+with open(f'{parent}/env.json', 'r') as file:
+    env = json.load(file)
 
 #create directory for PLOS data
 if os.path.isdir("inputs"):
@@ -109,13 +109,13 @@ df_NCBI = df_plos[df_plos['Repositories_data'].str.contains('NCBI|Gene Expressio
 #OpenAlex params
 url_openalex = 'https://api.openalex.org/works'
 j = 0
-page_limit_openalex = config['VARIABLES']['PAGE_LIMITS']['openalex_prod']
+page_limit_openalex = env['VARIABLES']['PAGE_LIMITS']['openalex_prod']
 
 params_openalex = {
     'filter': 'authorships.institutions.ror:https://ror.org/00hj54h04,locations.source.host_organization:https://openalex.org/P4310315706', #PLOS ID in OpenAlex
-    'per-page': config['VARIABLES']['PAGE_SIZES']['openalex'],
+    'per-page': env['VARIABLES']['PAGE_SIZES']['openalex'],
     'select': 'id,doi,title,authorships,primary_location,type',
-    'mailto': config['EMAIL']['user_email']
+    'mailto': env['EMAIL']['user_email']
 }
 
 ##retrieves a single page of results

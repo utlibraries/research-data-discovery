@@ -1,0 +1,16 @@
+[project]
+name = "research-data-discovery"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "beautifulsoup4>=4.15.0",
+    "biopython>=1.87",
+    "matplotlib>=3.11.0",
+    "numpy>=2.5.1",
+    "pandas>=3.0.3",
+    "rapidfuzz>=3.14.5",
+    "requests>=2.34.2",
+    "selenium>=4.45.0",
+]

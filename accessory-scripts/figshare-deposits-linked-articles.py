@@ -13,11 +13,11 @@ today_date = datetime.now().strftime('%Y%m%d')
 url_crossref = "https://api.crossref.org/works/"
 url_datacite = 'https://api.datacite.org/dois'
 
-#read in config file
+#read in env file
 parent = os.path.abspath(os.path.join(os.getcwd(), '..'))
-with open(f'{parent}/config.json', 'r') as file:
-    config = json.load(file)
-institution = config['INSTITUTION']['filename']
+with open(f'{parent}/env.json', 'r') as file:
+    env = json.load(file)
+institution = env['INSTITUTION']['filename']
 
 #for reading in previously generated file of all discovered datasets
 ##this includes datasets published through mediated workflows in which 'figshare' is not listed as the 'publisher'

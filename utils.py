@@ -280,7 +280,7 @@ def retrieve_crossref(url, params, page_limit):
         next_cursor = data.get('message', {}).get('next-cursor', None)
 
         if not data['message']['items']:
-            print('Finished this journal.\n')
+            print('Finished retrieval.\n')
             break
 
         all_data_crossref.extend(data['message']['items'])
@@ -348,16 +348,34 @@ def check_link(doi):
 
 # Counts descriptive words in text field
 def count_words(text, nondescriptive_words):
+    if not isinstance(text, str) or text.strip() == '':
+        return 0, 0
     words = text.split()
     total_words = len(words)
-    descriptive_count = sum(1 for word in words if word not in nondescriptive_words)
+    descriptive_count = sum(1 for word in words if word.lower() not in nondescriptive_words)
     return total_words, descriptive_count
 
 ## Adjust for specific phrases in descriptive word counting
 def adjust_descriptive_count(row):
-    if ('supplemental material' in row['title_reformatted'].lower() or
-            'supplementary material' in row['title_reformatted'].lower() or
-            'supplementary materials' in row['title_reformatted'].lower() or
-            'supplemental materials' in row['title_reformatted'].lower()):
-        return max(0, row['descriptive_word_count_title'] - 1)
-    return row['descriptive_word_count_title']
+    title = row.get('title_reformatted')
+    desc_count = row.get('descriptive_word_count_title', 0)
+    
+    if not isinstance(title, str):
+        return desc_count
+    if not isinstance(desc_count, int):
+        try:
+            desc_count = int(desc_count)
+        except (ValueError, TypeError):
+            desc_count = 0
+
+    keywords = [
+        'supplemental material',
+        'supplementary material',
+        'supplementary materials',
+        'supplemental materials',
+        'supporting materials'
+    ]
+
+    if any(keyword in title.lower() for keyword in keywords):
+        return max(0, desc_count - 1)
+    return desc_count
