@@ -27,8 +27,8 @@
         "user_email": ""
     },
     "INSTITUTION":{
-        "'affiliated": true,
-        "name": "University of Texas at Austin",
+        "affiliated": false,
+        "name": "The University of Texas at Austin",
         "uniqueIdentifier": "Austin",
         "ror": "https://ror.org/00hj54h04",
         "filename": "ut-austin",
@@ -75,6 +75,28 @@
     ],
     "PERMUTATIONS_IDENTIFIED": [
         "The University of Texas at Austin"
+    ],
+    "REPOSITORY_MAPPING": [
+        {"pattern": "4TU", "replacement": "4TU.ResearchData", "case": true, "column": "publisher"},
+        {"pattern": "BCO-DMO|Biological and Chemical Oceanography Data", "replacement": "Biol Chem Ocean Data Mgmt Office", "case": true, "column": "publisher"},
+        {"pattern": "Consortium of Universities for the Advancement of Hydrologic Science, Inc", "replacement": "CUAHSI", "case": false, "column": "publisher"},
+        {"pattern": "DR-NTU", "replacement": "Digital Repository of Nanyang Technological University", "case": true, "column": "publisher"},
+        {"pattern": "Digital Rocks", "replacement": "Digital Porous Media Portal", "case": false, "column": "publisher"},
+        {"pattern": "Energy Data eXchange", "replacement": "Energy Data eXchange", "case": true, "column": "publisher"},
+        {"pattern": "Environmental Molecular Sciences Laboratory", "replacement": "Environ Mol Sci Lab", "case": true, "column": "publisher"},
+        {"pattern": "Environmental System Science Data Infrastructure for a Virtual Ecosystem|Southeast Texas Urban Integrated Field Laboratory", "replacement": "ESS-DIVE", "case": false, "column": "publisher"},
+        {"pattern": "ICPSR", "replacement": "ICPSR", "case": true, "column": "publisher"},
+        {"pattern": "MultiSector Dynamics", "replacement": "MSD-Live Data Repository", "case": true, "column": "publisher"},
+        {"pattern": "NCAR", "replacement": "NSF NCAR Earth Observing Laboratory", "case": true, "column": "publisher"},
+        {"pattern": "Oak Ridge", "replacement": "Oak Ridge National Laboratory", "case": true, "column": "publisher"},
+        {"pattern": "PARADIM", "replacement": "PARADIM", "case": true, "column": "publisher"},
+        {"pattern": "Plazi|Journal of Hymenoptera Research", "replacement": "Plazi TreatmentBank", "case": false, "column": "publisher"},
+        {"pattern": "Princeton Plasma Physics Laboratory, Princeton University", "replacement": "Princeton Data Commons", "case": false, "column": "publisher"},
+        {"pattern": "Scratchpads|Biodiversity Collection|Algae", "replacement": "Global Biodiversity Information Facility (GBIF)", "case": true, "column": "publisher"},
+        {"pattern": "Taylor & Francis|SAGE|The Royal Society|SciELO journals", "replacement": "figshare", "case": true, "column": "publisher"},
+        {"pattern": "Texas Data Repository|Texas Research Data Repository", "replacement": "Texas Data Repository", "case": false, "column": "publisher"},
+        {"pattern": "The University of Texas at Austin, Bureau of Economic Geology", "replacement": "AmeriFlux", "case": false, "column": "publisher"},
+        {"pattern": "zenodo", "replacement": "Zenodo", "case": false, "column": "doi"}
     ],
     "FIGSHARE_PARTNERS": {
         "Microbiology Society": "https://openalex.org/P4310320497",

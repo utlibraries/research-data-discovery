@@ -1770,7 +1770,7 @@ if ncbi_workflow:
     ncbi_df_select['citations'] = 'No metrics information' #filler to match DataCite, no equivalent field
     ncbi_df_select['source'] = 'NCBI'
     ncbi_df_select['affiliation_source'] = 'Not applicable' #filler to match DataCite processing, no equivalent field
-    ncbi_df_select['affiliation_permutation'] = 'University of Texas at Austin' #standardized for search
+    ncbi_df_select['affiliation_permutation'] = env['INSTITUTION']['name'] #standardized for search
     ncbi_df_select['had_partial_duplicate'] = 'Not applicable' #filler to match DataCite processing, no equivalent field
     ncbi_df_select['file_format'] = 'No file size information' #filler to match DataCite processing, no equivalent field
     ncbi_df_select['contains_code'] = 'No file size information' #filler to match DataCite processing, no equivalent field
