@@ -2,7 +2,11 @@ import math
 import os
 import pandas as pd
 import requests
+from pathlib import Path
 from urllib.parse import urlparse, parse_qs
+
+# Getting root directory
+ROOT_DIR = Path(__file__).resolve().parent
 
 ### API retrieval functions ###
 
@@ -41,7 +45,7 @@ def retrieve_dryad(url, params, page_start, per_page):
 
         params['page'] += 1
 
-        if not datasets:
+        if not datasets or params['page'] > total_pages:
             print('End of Dryad response.\n')
             break
 
@@ -184,9 +188,9 @@ def retrieve_zenodo(url, params, page_start, page_limit, per_page):
     print(f'Total: {total_count} entries over {total_pages} pages\n')
 
     while current_url and current_page < page_limit:
-        current_page += 1
         print(f'Retrieving page {current_page} of {total_pages} from Zenodo...\n')
-        data = retrieve_page_zenodo(current_url)
+        current_page += 1
+        data = retrieve_page_zenodo(current_url, {'access_token': params['access_token']})
         if not data['hits']['hits']:
             print('End of Zenodo response.\n')
             break
@@ -308,8 +312,8 @@ def determine_affiliation(row, ut_variations):
     if row['first_author'] == row['last_author']:
         return 'single author'
 
-    first_affiliated = any(variation in (row['first_affiliation'] or '') for variation in ut_variations)
-    last_affiliated = any(variation in (row['last_affiliation'] or '') for variation in ut_variations)
+    first_affiliated = any(variation in (row['first_affiliation'] if isinstance(row['first_affiliation'], str) else '') for variation in ut_variations)
+    last_affiliated = any(variation in (row['last_affiliation'] if isinstance(row['last_affiliation'], str) else '') for variation in ut_variations)
 
     if first_affiliated and last_affiliated:
         return 'both lead and senior'
