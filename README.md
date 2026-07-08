@@ -39,6 +39,18 @@ API keys, numerical API query parameters (e.g., records per page, page limit), a
 ### Third-party API access
 Users will need to create accounts for [Dataverse](https://guides.dataverse.org/en/latest/api/auth.html) and [Zenodo](https://developers.zenodo.org/) in order to obtain personalized API keys, add those to `env-template.json`, and rename it as `env.json`. If you wish to query multiple Dataverse installations (e.g., a non-Harvard institutional dataverse and Harvard Dataverse), you will need to get a key for each installation. Crossref, DataCite, Dryad, Figshare, and OpenAlex do not require API keys for standard access. Some APIs impose rate limiting (e.g., [Dryad](https://datadryad.org/api); [OpenAlex](https://help.openalex.org/hc/en-us/articles/24397762024087-Pricing); [Zenodo](https://developers.zenodo.org/#rate-limiting)). Zenodo also restricts the total number of records that can be retrieved with one query to 10,000. Dataverse installations may or may not have rate limits.
 
+### Adaptation to another institution
+To use the workflow in its current state, but for another institution, users should do the following:
+1. Modify institution-specific information in `env.json`. This is mainly under *INSTITUTIONS*, *PERMUTATIONS*, AND *PERMUTATIONS_IDENTIFIED*. *INSTITUTIONS* contains several fields; the only one that needs to be use a controlled vocabulary is the ROR field. You can short-hand/represent the others as you wish. *PERMUTATIONS* should contain as many permutations as you can think of that would reasonably occur. As DataCite has a limit on how many can be queried in one call (something like 36, I think), you should still to realistic ones and avoid highly granular ones (e.g., with departmental information). The wild-carding implemented in December 2025 has somewhat reduced the need for comprehensive permutations, but abbreviations are still important (e.g., 'UT Austin' and 'University of Texas at Austin'). *PERMUTATIONS_IDENTIFIED* should be the official institution name.
+2. Provide user-specific information in `env.json`. This includes at least your email (for making polite API calls). Get your own API tokens if you will be doing cross-validation (this is recommended for a first run in order to identify additional permutations of the institution's name). If you want to cross-validate with a Dataverse repository, you will need to change *url_dataverse* to the target one. For any Dataverse that is NOT multi-institutional, the *subtree* parameter can be removed as well.
+3. Run and refine. You will probably want to run in the test env first just to make sure things are working as expected (see below). Then you would want to do a production run with *crossValidate* set to 'true' to identify more permutations and check the outputs for institution-specific things like repository names that should be standardized (this is *REPOSITORY_MAPPING* in `env.json`).
+
+### Test environment
+A Boolean variable called *test*, located in the env file, can be used to create a 'test environment.' If set to *true*, the script retrieves only a few pages from the DataCite or Crossref APIs (the largest sources of metadata). 
+
+### Estimated runtime
+Typically, a run of the primary workflow without cross-validation or any of the secondary Figshare workflows should complete in under 20 minutes. If cross-validation is employed, a run should complete in under 25 minutes. The test environment without cross-validation should complete in about 1 minute; if cross-validation is employed, it should complete in about 8-9 minutes. Adding one of the Figshare workflows can significantly increase the runtime; significant variation between institutions is expected. Typical runtime of the combined main workflow, first Figshare workflow (DataCite + OpenAlex), and NCBI step is around 40-55 minutes at present. The NCBI workflow itself should complete in 30-40 seconds.
+
 ## Organization & file list
 
 ### Root directory
@@ -91,27 +103,6 @@ Early testing led to development of targeted secondary workflows that attempt to
 ## Outputs
 See [output-dictionary.csv](output-dictionary.csv) for a description of output files.
 See [data-dictionary.csv](data-dictionary.csv) for a description of column headers.
-
-## Re-use
-If a re-user is only seeking to replicate the output for UT Austin or to retrieve an equivalent output for a different institution, the script will require very little modification - essentially only the defining of affiliation parameters will be necessary.
-
-### Adaptation to another institution
-To use the workflow in its current state, but for another institution, users should do the following:
-1. Modify institution-specific information. This is mainly under *INSTITUTIONS*, *PERMUTATIONS*, AND *PERMUTATIONS_IDENTIFIED*. *INSTITUTIONS* contains several fields; the only one that needs to be use a controlled vocabulary is the ROR field. You can short-hand/represent the others as you wish. *PERMUTATIONS* should contain as many permutations as you can think of that would reasonably occur. As DataCite has a limit on how many can be queried in one call (something like 36, I think), you should still to realistic ones and avoid highly granular ones (e.g., with departmental information). The wild-carding implemented in December 2025 has somewhat reduced the need for comprehensive permutations, but abbreviations are still important (e.g., 'UT Austin' and 'University of Texas at Austin'). *PERMUTATIONS_IDENTIFIED* should be the official institution name.
-2. Provide user-specific information. This includes at least your email (for making polite API calls). Get your own API tokens if you will be doing cross-validation (this is recommended for a first run in order to identify additional permutations of the institution's name). If you want to cross-validate with a Dataverse repository, you will need to change *url_dataverse* to the target one. For any Dataverse that is NOT multi-institutional, the *subtree* parameter can be removed as well.
-3. Run and refine. You will probably want to run in the test env first just to make sure things are working as expected (see below). Then you would want to do a production run and look for institution-specific things like repository names that should be standardized (this is *REPOSITORY_MAPPING* in `env.json`).
-
-### Test environment
-A Boolean variable called *test*, located in the env file, can be used to create a 'test environment.' If set to *true*, the script retrieves only a few pages from the DataCite or Crossref APIs (the largest sources of metadata). 
-
-### Cross-validation
-Similar to the test environment, a Boolean value called *crossValidate* (in `env.json`) controls the cross-validation component (*true* will retrieve records from other APIs and cross-validate against DataCite). Another variable in the env file called *dataverse* will enable or disable the cross-validation for a Dataverse-based repository specifically (would require an API key and is not relevant for all potential users).
-
-* For UT Austin users: there should be no reason why you need to run the cross-validation process since I have used it to refine the workflow into the present state (e.g., to account for different permutations of the institutional name).
-* For non-UT Austin users: if you are at another institution and want to adapt this workflow, running the cross-validation is recommended to identify alternative/unexpected permutations of the name, especially if you are at an institution that similarly is part of a broader system or that has its name listed in a wide variety of ways.
-
-### Predicted runtime
-Typically, a run of the primary workflow without cross-validation or any of the secondary Figshare workflows should complete in under 20 minutes. If cross-validation is employed, a run should complete in under 25 minutes. The test environment without cross-validation should complete in about 1 minute; if cross-validation is employed, it should complete in about 8-9 minutes. Adding one of the Figshare workflows can significantly increase the runtime; significant variation between institutions is expected. Typical runtime of the combined main workflow, first Figshare workflow (DataCite + OpenAlex), and NCBI step is around 40-55 minutes at present. The NCBI workflow itself should complete in 30-40 seconds.
 
 ## Planned development
 Product development ideas/plans are listed as '[Issues](https://github.com/utlibraries/research-data-discovery/issues)'. The projected timelines are listed in a linked [Project](https://github.com/orgs/utlibraries/projects/3). 
