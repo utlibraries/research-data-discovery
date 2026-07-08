@@ -2,6 +2,9 @@
 
 The current version scheme follows a MAJOR.MINOR.PATCH format, with a 'major' change involving added functionality or significant revisions to the workflow; a 'minor' change involving addition of accessory files or minor revisions to the workflow (e.g., refactoring); and a 'patch' is a bug fix.
 
+## 2.3.1
+Implements minor bug fixes for pagination counters, the Zenodo cross-validation process, output directory paths, and styling. Removes the Selenium web driver component.
+
 ## 2.3.0
 Implements *uv* for package management, switches the name of the `config.json` file to `env.json`, adds in some additional specifications for encoding of CSV outputs to preserve uncommon punctuation, makes some minor tweaks to account for changes in API structure/output, and begins restructuring the README.
 

@@ -3,7 +3,7 @@
 # Scripted process for retrieving metadata on institutional-affiliated research dataset publications
 
 ## Metadata
-* *Version*: 2.3.0 (**not released to Zenodo**)
+* *Version*: 2.3.1 (**not released to Zenodo**)
 * *Released*: 2026/07/08
 * *Author(s)*: Bryan Gee (UT Libraries, University of Texas at Austin; bryan.gee@austin.utexas.edu; ORCID: [0000-0003-4517-3290](https://orcid.org/0000-0003-4517-3290))
 * *Contributor(s)*: None
@@ -16,11 +16,9 @@
 3. [Organization & file list](#organization--file-list)
 4. [Overview](#overview)
 5. [Outputs](#outputs)
-6. [Re-use](#re-use)
-7. [Important caveats](#important-caveats)
-8. [Planned development](#planned-development)
-9. [Questions / comments](#questions--comments)
-10. [Disclaimer](#disclaimer)
+6. [Planned development](#planned-development)
+7. [Version notes](#version--notes)
+8. [Disclaimer](#disclaimer)
 
 ## Purpose
 This repository contains Python code that is designed to gather and organize metadata from a number of individual research data repository/platform APIs in order to analyze and summarize research dataset publications that are affiliated with at least one researcher from a particular institution. This code is being developed in the specific context of retrieving data for the University of Texas at Austin but can be readily adapted for use at other institutions.
@@ -43,7 +41,7 @@ Users will need to create accounts for [Dataverse](https://guides.dataverse.org/
 To use the workflow in its current state, but for another institution, users should do the following:
 1. Modify institution-specific information in `env.json`. This is mainly under *INSTITUTIONS*, *PERMUTATIONS*, AND *PERMUTATIONS_IDENTIFIED*. *INSTITUTIONS* contains several fields; the only one that needs to be use a controlled vocabulary is the ROR field. You can short-hand/represent the others as you wish. *PERMUTATIONS* should contain as many permutations as you can think of that would reasonably occur. As DataCite has a limit on how many can be queried in one call (something like 36, I think), you should still to realistic ones and avoid highly granular ones (e.g., with departmental information). The wild-carding implemented in December 2025 has somewhat reduced the need for comprehensive permutations, but abbreviations are still important (e.g., 'UT Austin' and 'University of Texas at Austin'). *PERMUTATIONS_IDENTIFIED* should be the official institution name.
 2. Provide user-specific information in `env.json`. This includes at least your email (for making polite API calls). Get your own API tokens if you will be doing cross-validation (this is recommended for a first run in order to identify additional permutations of the institution's name). If you want to cross-validate with a Dataverse repository, you will need to change *url_dataverse* to the target one. For any Dataverse that is NOT multi-institutional, the *subtree* parameter can be removed as well.
-3. Run and refine. You will probably want to run in the test env first just to make sure things are working as expected (see below). Then you would want to do a production run with *crossValidate* set to 'true' to identify more permutations and check the outputs for institution-specific things like repository names that should be standardized (this is *REPOSITORY_MAPPING* in `env.json`).
+3. Run and refine. You will probably want to run in the test env first just to make sure things are working as expected (see below). Then you would want to do a production run with *cross_validate* set to 'true' to identify more permutations and check the outputs for institution-specific things like repository names that should be standardized (this is *REPOSITORY_MAPPING* in `env.json`).
 
 ### Test environment
 A Boolean variable called *test*, located in the env file, can be used to create a 'test environment.' If set to *true*, the script retrieves only a few pages from the DataCite or Crossref APIs (the largest sources of metadata). 
@@ -98,7 +96,7 @@ Early testing led to development of targeted secondary workflows that attempt to
 
 2. The second workflow (*figshareWorkflow2*) takes advantage of a different configuration in certain journals in which mediated Figshare deposits are minted through Crossref with a DOI that appends '.s00x' (or sometimes '.t00x') to the end of the associated article DOI where 'x' is a sequential number. This workflow retrieves all university-affiliated articles from a publisher that does this (e.g., PLOS) via `journal-list.json`, constructs a hypothetical Figshare DOI by adding '.s001' to the article DOI, and tests whether that link exists. This only establishes that there is a Figshare deposit - this may not be classified as a 'dataset'. 
 
-`dataset-records-retrieval.py` also contains a secondary workflow for NCBI, which does not use digital PIDs, instead issuing collection/accession/project IDs that while persistent, do not have a persistent-resolving URL. There is no API specifically designed for institutional records retrieval, but the Entrez system can be queried through various modules by searching for an affiliation string. This workflow provides an option to use either this method or to use a [Selenium](https://www.selenium.dev/) library developed for Python. Selenium is normally used for web testing and requires a separate installation of a browser-specific WebDriver proxy. The Selenium-based workflow was developed for Mozilla Firefox and thus uses [GeckoDriver](https://github.com/mozilla/geckodriver), but other browsers have their own proxies (e.g., [ChromeDriver](https://developer.chrome.com/docs/chromedriver/downloads)). You may need to do some basic path mapping for the installed proxy (e.g., for [GeckoDriver](https://www.browserstack.com/guide/geckodriver-selenium-python)). If you use a browser other than Firefox, some modifications will be required. This workflow specifically looks for BioProjects, which are considered the most equivalent to a 'dataset'-level object.
+`dataset-records-retrieval.py` also contains a secondary workflow for NCBI, which does not use digital PIDs, instead issuing collection/accession/project IDs that while persistent, do not have a persistent-resolving URL. There is no API specifically designed for institutional records retrieval, but the Entrez system can be queried through various modules by searching for an affiliation string. This workflow specifically uses the *biopython* module and looks for BioProjects, which are considered the most equivalent to a 'dataset'-level object.
 
 ## Outputs
 See [output-dictionary.csv](output-dictionary.csv) for a description of output files.
@@ -107,7 +105,7 @@ See [data-dictionary.csv](data-dictionary.csv) for a description of column heade
 ## Planned development
 Product development ideas/plans are listed as '[Issues](https://github.com/utlibraries/research-data-discovery/issues)'. The projected timelines are listed in a linked [Project](https://github.com/orgs/utlibraries/projects/3). 
 
-## Questions / comments
+### Questions / comments
 (Potential) re-users should feel free to create an issue if there is a bug or feature request. These can alternatively be directed to the UT Libraries Research Data Services team that developed this tool by sending an email to utl-rds@austin.utexas.edu. For conceptual understanding of the process, please refer to the preprint or published article.
 
 ## Version notes
