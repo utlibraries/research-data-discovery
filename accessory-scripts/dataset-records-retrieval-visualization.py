@@ -6,43 +6,50 @@ import shutil
 import sys
 from datetime import datetime
 
-#call functions from parent utils.py file
+# Call functions from parent utils.py file
 utils_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, utils_dir) 
 from utils import load_most_recent_file 
 
-#creating variable with current date for appending to filenames
-today_date = datetime.now().strftime("%Y%m%d") 
-#toggle for file format (prefer TIFF, if not, use PNG)
+# Creating variable with current date for appending to filenames
+today = datetime.now().strftime("%Y%m%d") 
+# Toggle for file format (prefer TIFF, if not, use PNG)
 tiff = False
 if tiff:
     plotFormat = 'tiff'
 else:
     plotFormat = 'png'
-#variable for plot DPI
+# Variable for plot DPI
 dpi = 1200
 
 script_dir = os.getcwd()
 parent_dir = os.path.abspath(os.path.join(os.getcwd(), '..'))
-outputs_dir = os.path.join(parent_dir, 'outputs')
+outputs_dir = os.path.join(parent_dir, 'outputs/data')
 
-#creating directory for older plots
+plots_dir = os.path.join(script_dir, 'plots')
+if os.path.isdir(plots_dir):
+    print("plots directory found - no need to recreate")
+else:
+    os.mkdir(plots_dir)
+    print("plots directory has been created")
+
+# Creating directory for older plots
 if os.path.isdir("plots/old-plots"):
     print("old plots directory found - no need to recreate")
 else:
     os.mkdir("plots/old-plots")
     print("old plots directory has been created")
-#move plots not created today to that folder
+# Move plots not created today to that folder
 for filename in os.listdir('plots'):
-    if os.path.isfile(os.path.join('plots', filename)) and not filename.startswith(today_date):
+    if os.path.isfile(os.path.join('plots', filename)) and not filename.startswith(today):
         shutil.move(os.path.join('plots', filename), os.path.join('plots/old-plots', filename))
-print(f"Files not generated on {today_date} have been moved to the old-plots subdirectory.")
+print(f"Files not generated on {today} have been moved to the old-plots subdirectory.")
 
-#patterns for output files from API queries
-pattern1 = '_datacite-output-for-affiliation-source.csv'
+# Patterns for output files from API queries
+pattern1 = '_datacite-output-for-metadata-assessment.csv'
 df_datacite = load_most_recent_file(outputs_dir, pattern1)
 if 'Software' in df_datacite['type'].values:
-    df = df_datacite[df_datacite['type'] == 'Dataset']
+    df_datacite = df_datacite[df_datacite['type'] == 'Dataset']
 
 pattern2 = '_full-concatenated-dataframe.csv'
 df_all_repos = load_most_recent_file(outputs_dir, pattern2)
@@ -53,31 +60,25 @@ pattern3 = '_full-concatenated-dataframe-plus-figshare-ncbi-crossref.csv'
 df_all_repos_plus = load_most_recent_file(outputs_dir, pattern3)
 if 'Software' in df_all_repos_plus['type'].values:
     df_all_repos_plus = df_all_repos_plus[df_all_repos_plus['type'] == 'Dataset']
-#subsetting for datasets where UT researcher is first/last/both
+# Subsetting for datasets where UT researcher is first/last/both
 conditions = ['only lead', 'only senior', 'single author', 'both lead and senior']
-df_all_repos_plus_ut_lead = df_all_repos_plus[df_all_repos_plus['uni_lead'].isin(conditions)]
+df_all_repos_plus_ut_lead = df_all_repos_plus[df_all_repos_plus['uni_lead'].isin(conditions)].copy()
 
-pattern4 = '_figshare-discovery-deduplicated.csv'
+pattern4 = '_figshare-discovery-initial.csv'
 df_extra_figshare = load_most_recent_file(outputs_dir, pattern4)
-df_extra_figshare = df_extra_figshare.drop_duplicates(subset='relatedIdentifier', keep='first')
+df_extra_figshare = df_extra_figshare.drop_duplicates(subset='related_identifier', keep='first')
 
 pattern5 = 'datacite-output-for-metadata-assessment'
 df_metadata = load_most_recent_file(outputs_dir, pattern5)
 if 'Software' in df_metadata['type'].values:
     df_metadata = df_metadata[df_metadata['type'] == 'Dataset']
 
-plots_dir = os.path.join(script_dir, 'plots')
-if os.path.isdir(plots_dir):
-    print("plots directory found - no need to recreate")
-else:
-    os.mkdir(plots_dir)
-    print("plots directory has been created")
-#Renavigate back to the script directory
+# Renavigate back to the script directory
 os.chdir(script_dir)
 
 ### Source of affiliation detection (which queried metadata field) ###
 if df_datacite is not None:
-    plot_filename = f"{today_date}_affiliation-source-counts.{plotFormat}"
+    plot_filename = f"{today}_affiliation-source-counts.{plotFormat}"
     affiliation_source_counts = df_datacite['affiliation_source'].value_counts(ascending=True)
         
     fig, ax1 = plt.subplots(figsize=(10, 5))
@@ -93,11 +94,12 @@ if df_datacite is not None:
     # plt.show()
     plot_path = os.path.join(plots_dir, plot_filename)
     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    plt.close(fig)
 
     print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
 
     ### Which institutional permutation was detected ###
-    plot_filename = f"{today_date}_affiliation-permutation-counts.{plotFormat}"
+    plot_filename = f"{today}_affiliation-permutation-counts.{plotFormat}"
     affiliation_source_counts = df_datacite['affiliation_source'].value_counts(ascending=True)
     affiliation_permutation_counts = df_datacite['affiliation_permutation'].value_counts(ascending=True)
         
@@ -114,13 +116,14 @@ if df_datacite is not None:
     # plt.show()
     plot_path = os.path.join(plots_dir, plot_filename)
     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    plt.close(fig)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
 
 ### Repository count ###
-####toggle for whether or not to include an aggregate 'Other' bar for low-count repositories
+#### Toggle for whether or not to include an aggregate 'Other' bar for low-count repositories
 includeOther = False
 if df_all_repos_plus is not None:
-    plot_filename = f"{today_date}_repository-counts-30-plus.{plotFormat}"
+    plot_filename = f"{today}_repository-counts-30-plus.{plotFormat}"
     repo_counts = df_all_repos_plus['repository'].value_counts()
     df_all_repos_plus['collapsed_repository'] = df_all_repos_plus['repository'].apply(lambda x: x if repo_counts[x] >= 30 else 'Other')
     if includeOther:
@@ -142,10 +145,11 @@ if df_all_repos_plus is not None:
     # plt.show()
     plot_path = os.path.join(plots_dir, plot_filename)
     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    plt.close(fig)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
 
-    ### restrict to first/last author UT datasets
-    plot_filename = f"{today_date}_repository-counts-30-plus_UT-first-last.{plotFormat}"
+    ### Restrict to first/last author UT datasets
+    plot_filename = f"{today}_repository-counts-30-plus_UT-first-last.{plotFormat}"
     repo_counts = df_all_repos_plus_ut_lead['repository'].value_counts()
     df_all_repos_plus_ut_lead['collapsed_repository'] = df_all_repos_plus_ut_lead['repository'].apply(lambda x: x if repo_counts[x] >= 20 else 'Other')
     if includeOther:
@@ -167,12 +171,13 @@ if df_all_repos_plus is not None:
     # plt.show()
     plot_path = os.path.join(plots_dir, plot_filename)
     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    plt.close(fig)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
 
 
 ### Discovered Figshare deposits ###
 if df_extra_figshare is not None:
-    plot_filename = f"{today_date}_extra-figshare-counts.{plotFormat}"
+    plot_filename = f"{today}_extra-figshare-counts.{plotFormat}"
     extra_publisher_counts = df_extra_figshare['repository'].value_counts(ascending=True)
         
     fig, ax1 = plt.subplots(figsize=(10, 7))
@@ -188,11 +193,12 @@ if df_extra_figshare is not None:
     # plt.show()
     plot_path = os.path.join(plots_dir, plot_filename)
     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    plt.close(fig)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
 
 ### Mendeley Data deposit volume over time ###
 if df_all_repos is not None:
-    plot_filename = f"{today_date}_mendeley-data-by-year.{plotFormat}"
+    plot_filename = f"{today}_mendeley-data-by-year.{plotFormat}"
     mendeley = df_all_repos[df_all_repos['repository'] == 'Mendeley Data']
     mendeley_annual = mendeley['publication_year'].value_counts(ascending=True)
     fig, ax1 = plt.subplots(figsize=(10, 7))
@@ -204,7 +210,7 @@ if df_all_repos is not None:
     ax1.grid(True, which='both', color='white', linestyle='-', linewidth=1.5)
     ax1.tick_params(axis='both', which='major', labelsize=14)
     ax1.set_axisbelow(True)
-    #standardize axes
+    # Standardize axes
     ax1.set_xlim(2016, 2026)
     ax1.set_xticks(list(range(2016, 2026, 2)) + [2026])
     ax1.set_ylim(0, 25)   
@@ -213,11 +219,12 @@ if df_all_repos is not None:
     # plt.show()
     plot_path = os.path.join(plots_dir, plot_filename)
     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    plt.close(fig)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
 
 ### Repository deposit volume over time ###
 if df_all_repos_plus is not None:
-    plot_filename = f"{today_date}_repositories-by-year.{plotFormat}"
+    plot_filename = f"{today}_repositories-by-year.{plotFormat}"
     df_all_repos_plus['publication_year'] = pd.to_numeric(df_all_repos_plus['publication_year'], errors='coerce')
     df_all_repos_plus['publication_year'] = df_all_repos_plus['publication_year'].fillna(0).astype(float).astype(int)
     df_all_repos_2024 = df_all_repos_plus[(df_all_repos_plus['publication_year'] <= 2024) & (df_all_repos_plus['publication_year'] > 0)]
@@ -231,7 +238,7 @@ if df_all_repos_plus is not None:
                 'Texas Data Repository': '#bf5700', 
                 'Harvard Dataverse': '#A51C30'}  
 
-    #for comparison in a single plot
+    # For comparison in a single plot
     # fig, ax = plt.subplots()
     # for i, repo in enumerate(df_filtered['repository'].unique()):
     #     subset = df_filtered[df_filtered['repository'] == repo]
@@ -249,7 +256,7 @@ if df_all_repos_plus is not None:
     # ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{int(x)}'))
     # plt.tight_layout()
 
-    #for a gridded view with each repository in a different subplot
+    # For a gridded view with each repository in a different subplot
     fig, axs = plt.subplots(1, 5, figsize=(10, 5))
     for i, repo in enumerate(df_filtered['repository'].unique()):
         subset = df_filtered[df_filtered['repository'] == repo]
@@ -271,7 +278,7 @@ if df_all_repos_plus is not None:
         ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{int(x)}'))
         plt.setp(ax.get_xticklabels(), rotation=45, ha='right')
 
-        #only showing y-axis label on left-most graph
+        # Only showing y-axis label on left-most graph
         if i != 0:
             ax.set_yticklabels([])
             ax.set_ylabel('')
@@ -281,13 +288,14 @@ if df_all_repos_plus is not None:
 
     plot_path = os.path.join(plots_dir, plot_filename)
     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    plt.close(fig)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
 
-    ### only for first/last author UT datasets
-    plot_filename = f"{today_date}_repositories-by-year_UT-first-last.{plotFormat}"
+    ### Only for first/last author UT datasets
+    plot_filename = f"{today}_repositories-by-year_UT-first-last.{plotFormat}"
     df_all_repos_plus_ut_lead['publication_year'] = pd.to_numeric(df_all_repos_plus_ut_lead['publication_year'], errors='coerce')
     df_all_repos_plus_ut_lead['publication_year'] = df_all_repos_plus_ut_lead['publication_year'].fillna(0).astype(float).astype(int)
-    df_all_repos_plus_ut_lead_2024 = df_all_repos_plus_ut_lead[(df_all_repos_plus_ut_lead['publication_year'] <= 2024) & (df_all_repos_plus['publication_year'] > 0)]
+    df_all_repos_plus_ut_lead_2024 = df_all_repos_plus_ut_lead[(df_all_repos_plus_ut_lead['publication_year'] <= 2024) & (df_all_repos_plus_ut_lead['publication_year'] > 0)]
     repository_counts_by_year = df_all_repos_plus_ut_lead_2024.groupby(['repository', 'publication_year']).size().reset_index(name="counts")
 
     selected_repos = ['Dryad', 'Harvard Dataverse', 'Zenodo', 'Texas Data Repository']
@@ -297,7 +305,7 @@ if df_all_repos_plus is not None:
                 'Texas Data Repository': '#bf5700', 
                 'Harvard Dataverse': '#A51C30'}  
 
-    #for a gridded view with each repository in a different subplot
+    # For a gridded view with each repository in a different subplot
     fig, axs = plt.subplots(1, 4, figsize=(16, 6))
     for i, repo in enumerate(df_filtered['repository'].unique()):
         subset = df_filtered[df_filtered['repository'] == repo]
@@ -323,11 +331,12 @@ if df_all_repos_plus is not None:
 
     plot_path = os.path.join(plots_dir, plot_filename)
     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    plt.close(fig)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
 
 ### Authorship position of UT researcher ###
 if df_all_repos_plus is not None:
-    plot_filename = f"{today_date}_ut-author-position_all-repos.{plotFormat}"
+    plot_filename = f"{today}_ut-author-position_all-repos.{plotFormat}"
     authorPositions = df_all_repos_plus['uni_lead'].value_counts(ascending=True)
     
     color_map = {
@@ -339,7 +348,7 @@ if df_all_repos_plus is not None:
         'Affiliated (authorship unclear)': "#b4b3b2"
     }
 
-    #ensure the colors are in the same order as the columns
+    # Ensure the colors are in the same order as the columns
     colors = [color_map.get(position, '#cccccc') for position in authorPositions.index]
 
     fig, ax = plt.subplots(figsize=(10, 7))
@@ -354,11 +363,12 @@ if df_all_repos_plus is not None:
     plt.tight_layout()
     plot_path = os.path.join(plots_dir, plot_filename)
     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    plt.close(fig)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
 
-    plot_filename = f"{today_date}_author-contributions-proxy.{plotFormat}"
-    topRepos = df_all_repos_plus[df_all_repos_plus['repository'].str.contains('Dryad|Texas Data Repository|Zenodo|Harvard Dataverse')]
-    #create binary column
+    plot_filename = f"{today}_author-contributions-proxy.{plotFormat}"
+    topRepos = df_all_repos_plus[df_all_repos_plus['repository'].str.contains('Dryad|Texas Data Repository|Zenodo|Harvard Dataverse')].copy()
+    # Create binary column
     topRepos['affiliated'] = topRepos['uni_lead'].apply(
         lambda x: 'first/last' if x != 'neither lead nor senior' else x
     )
@@ -385,12 +395,13 @@ if df_all_repos_plus is not None:
     plt.tight_layout()
     plot_path = os.path.join(plots_dir, plot_filename)
     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    plt.close(fig)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
 
 ### Metadata assessments ###
-####contains software
+#### Contains software
 if df_metadata is not None:
-    plot_filename = f"{today_date}_contains-software.{plotFormat}"
+    plot_filename = f"{today}_contains-software.{plotFormat}"
     df_metadata['contains_code'] = df_metadata['contains_code'].astype(str).str.upper().map({'TRUE': True, 'FALSE': False})
     df_metadata['only_code'] = df_metadata['only_code'].astype(str).str.upper().map({'TRUE': True, 'FALSE': False})
 
@@ -402,7 +413,6 @@ if df_metadata is not None:
                     'No file format information' if row['formats'] == 'No file information'
                     else 'No code' if not row['contains_code']
                     else 'Code and non-code files' if row['contains_code'] and not row['only_code']
-                    else 'Only code' if row['only_code']
                     else 'Unknown'
                 ),
                 axis=1
@@ -416,7 +426,7 @@ if df_metadata is not None:
             'Only code': "#d41159",
             'No code': "#1a85ff"
         }
-    colors = [color_map.get(type, '#cccccc') for type in softwareInclusions.index]
+    colors = [color_map.get(category, '#cccccc') for category in softwareInclusions.index]
     fig, ax = plt.subplots(figsize=(10, 7))
     softwareInclusions.plot(kind='barh', stacked=False, ax=ax, color=colors, edgecolor='black')
     ax.set_xlabel("Count", fontsize=15)
@@ -430,10 +440,11 @@ if df_metadata is not None:
 
     plot_path = os.path.join(plots_dir, plot_filename)
     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    plt.close(fig)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
 
-    ####file size
-    plot_filename = f"{today_date}_datasets-by-size-bin.{plotFormat}"
+    #### File size
+    plot_filename = f"{today}_datasets-by-size-bin.{plotFormat}"
     df_metadata['deposit_size'] = pd.to_numeric(df_metadata['deposit_size'], errors='coerce')
 
     bins = [
@@ -481,9 +492,8 @@ if df_metadata is not None:
     df_metadata['size_bin'] = df_metadata['size_bin'].cat.add_categories(['Empty', 'No data'])
     df_metadata.loc[df_metadata['deposit_size'].isna(), 'size_bin'] = 'No data'
     df_metadata.loc[(df_metadata['deposit_size'] <= 0), 'size_bin'] = 'Empty'
-    plot_filename = f"{today_date}_datasets-by-size-bin.{plotFormat}"
-    
-    #count the occurrences of each size_bin, but keep the categorical order
+
+    # Count the occurrences of each size_bin, but keep the categorical order
     datasets_size = df_metadata['size_bin'].value_counts(sort=False).reset_index()
     datasets_size.columns = ['size_bin', 'count']
 
@@ -496,7 +506,7 @@ if df_metadata is not None:
         (datasets_size['size_bin'] != 'Empty') & (datasets_size['size_bin'] != 'No data')
     ]
 
-    #append "Empty" and "No data" to the bottom of the df
+    # Append "Empty" and "No data" to the bottom of the df
     datasets_size = pd.concat([datasets_size, empty_row, no_data_row], ignore_index=True)
 
     fig, ax = plt.subplots(figsize=(10, 7))
@@ -508,7 +518,7 @@ if df_metadata is not None:
     ax.grid(True, which='both', color='white', linestyle='-', linewidth=1.5)
     ax.tick_params(axis='both', which='major', labelsize=14)
     ax.set_axisbelow(True)
-    #add text to bars
+    # Add text to bars
     for bar in bars:
         width = bar.get_width() 
         y_position = bar.get_y() + bar.get_height() / 2 
@@ -525,10 +535,11 @@ if df_metadata is not None:
 
     plot_path = os.path.join(plots_dir, plot_filename)
     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    plt.close(fig)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
 
-    ####licensing
-    plot_filename = f"{today_date}_datasets-by-licensing-all.{plotFormat}"
+    #### Licensing
+    plot_filename = f"{today}_datasets-by-licensing-all.{plotFormat}"
     licensing = df_metadata['rights_standardized'].value_counts()
     print(licensing)
 
@@ -545,10 +556,11 @@ if df_metadata is not None:
 
     plot_path = os.path.join(plots_dir, plot_filename)
     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    plt.close(fig)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
 
-    #####licensing minus Dryad and TDR (CC0 default or mandatory)
-    plot_filename = f"{today_date}_datasets-by-licensing-select.{plotFormat}"
+    ##### Licensing minus Dryad and TDR (CC0 default or mandatory)
+    plot_filename = f"{today}_datasets-by-licensing-select.{plotFormat}"
     df_metadata_select = df_metadata[~df_metadata['publisher'].str.contains('Dryad|Texas', case=True, na=False)]
     licensing_select = df_metadata_select['rights_standardized'].value_counts()
 
@@ -565,10 +577,11 @@ if df_metadata is not None:
 
     plot_path = os.path.join(plots_dir, plot_filename)
     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    plt.close(fig)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
 
-    ####combined licensing
-    plot_filename = f"{today_date}_datasets-by-licensing-combined.{plotFormat}"
+    #### Combined licensing
+    plot_filename = f"{today}_datasets-by-licensing-combined.{plotFormat}"
     licensing = licensing.reset_index()
     licensing.columns = ['License', 'Count']
     licensing_select = licensing_select.reset_index()
@@ -596,10 +609,11 @@ if df_metadata is not None:
     plt.tight_layout()
     plot_path = os.path.join(plots_dir, plot_filename)
     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    plt.close(fig)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
 
-    ###combined licensing with high-freq and low-freq divided
-    plot_filename = f"{today_date}_datasets-by-licensing-combined-stacked.{plotFormat}"
+    ### Combined licensing with high-freq and low-freq divided
+    plot_filename = f"{today}_datasets-by-licensing-combined-stacked.{plotFormat}"
     licensing_combo = pd.concat([licensing, licensing_select], ignore_index=True)
     df_pivot = licensing_combo.pivot(index='License', columns='Type', values='Count').fillna(0)
     df_pivot_sorted = df_pivot.sort_values(by='All datasets', ascending=False)
@@ -647,11 +661,12 @@ if df_metadata is not None:
 
     plot_path = os.path.join(plots_dir, plot_filename)
     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    plt.close(fig)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
 
-    ####descriptive words
-    plot_filename = f"{today_date}_datasets-title-descriptive.{plotFormat}"
-    #####remove any consolidated Figshare dataset (will have much longer 'titles')
+    #### Descriptive words
+    plot_filename = f"{today}_datasets-title-descriptive.{plotFormat}"
+    ##### Remove any consolidated Figshare dataset (will have much longer 'titles')
     df_subset = df_metadata[~(df_metadata['doi'].str.contains(';') & (df_metadata['publisher'] == 'figshare'))]
     print(f'Number of retained datasets for title analysis: {len(df_subset)}\n')
     descriptiveTitles = df_subset['descriptive_word_count_title'].value_counts()
@@ -669,10 +684,11 @@ if df_metadata is not None:
 
     plot_path = os.path.join(plots_dir, plot_filename)
     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    plt.close(fig)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
 
-    ####non-descriptive words
-    plot_filename = f"{today_date}_datasets-title-nondescriptive.{plotFormat}"
+    #### Non-descriptive words
+    plot_filename = f"{today}_datasets-title-nondescriptive.{plotFormat}"
     nondescriptiveTitles = df_subset['nondescriptive_word_count_title'].value_counts()
 
     fig, ax = plt.subplots(figsize=(10, 7))
@@ -688,6 +704,7 @@ if df_metadata is not None:
 
     plot_path = os.path.join(plots_dir, plot_filename)
     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    plt.close(fig)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
 
 ##### FOR ACCESSING FILES IN ACCESSORY-OUTPUTS #####
@@ -695,33 +712,34 @@ script_dir = os.getcwd()
 parent_dir = os.path.abspath(os.path.join(os.getcwd(), '..'))
 outputs_dir = os.path.join(parent_dir, 'accessory-scripts/accessory-outputs')
 
-#retrieve most recent output file
-##patterns for output files from API queries
+# Retrieve most recent output file
+## Patterns for output files from API queries
 patternA = '_Dryad-into-DataCite_joint-all-dataframe.csv'
 df_dryad = load_most_recent_file(outputs_dir, patternA)
-df_dryad.rename(columns={'publicationYear_x': 'publication_year (DataCite)', 'publicationYear_y': 'publication_year (Dryad)'}, inplace=True)
 
 patternB = '_Dryad-into-DataCite_joint-all-dataframe_ut-austin'
 df_dryadUT = load_most_recent_file(outputs_dir, patternB)
-df_dryadUT.rename(columns={'publicationYear_x': 'publication_year (DataCite)', 'publicationYear_y': 'publication_year (Dryad)'}, inplace=True)
 
-#remove DOIs with two slashes unless they contain 'digitalcsic'
-filtered_df = df_dryad[~df_dryad['doi'].str.contains(r'/.*/') | df_dryad['doi'].str.contains(r'/digitalcsic/')]
+if df_dryad is not None and df_dryadUT is not None:
+    df_dryad.rename(columns={'publicationYear_x': 'publication_year (DataCite)', 'publicationYear_y': 'publication_year (Dryad)'}, inplace=True)
+    df_dryadUT.rename(columns={'publicationYear_x': 'publication_year (DataCite)', 'publicationYear_y': 'publication_year (Dryad)'}, inplace=True)
 
-if filtered_df is not None:
-    plot_filename = f"{today_date}_dryad-timestamp-comparison.{plotFormat}"
+    # Remove DOIs with two slashes unless they contain 'digitalcsic'
+    filtered_df = df_dryad[~df_dryad['doi'].str.contains(r'/.*/') | df_dryad['doi'].str.contains(r'/digitalcsic/')].copy()
+
+    plot_filename = f"{today}_dryad-timestamp-comparison.{plotFormat}"
     year_columns = ['availableYear', 'publication_year (Dryad)', 'publication_year (DataCite)', ]
 
     for col in year_columns:
         filtered_df[col] = pd.to_numeric(filtered_df[col], errors='coerce')
         df_dryadUT[col] = pd.to_numeric(df_dryadUT[col], errors='coerce')
 
-    #count the number of entries per year for each column
+    # Count the number of entries per year for each column
     yearly_counts = {col: filtered_df[col].value_counts().sort_index() for col in year_columns}
     yearly_counts_df = pd.DataFrame(yearly_counts)
     yearly_countsUT = {col: df_dryadUT[col].value_counts().sort_index() for col in year_columns}
     yearly_countsUT_df = pd.DataFrame(yearly_countsUT)
-    #convert wide format to long format
+    # Convert wide format to long format
     long_format_df = yearly_counts_df.reset_index().melt(
         id_vars=['index'],
         var_name='year_column',
@@ -746,94 +764,8 @@ if filtered_df is not None:
     long_format_df['source'] = long_format_df['year_column'].map(repo_mapping)
     long_formatUT_df['source'] = long_formatUT_df['year_column'].map(repo_mapping)
 
-    ### line graph version ###
-    # color_map = {
-    # 'registeredYear': 'blue',
-    # 'createdYear': 'brown',
-    # 'publication_year (DataCite)': '#D67AB1',
-    # 'publication_year (Dryad)': '#8DAB7F',
-    # 'issuedYear': 'purple',
-    # 'availableYear': '#EF8354'
-    # }
-
-    # N_cols = len(year_columns)
-    # fig, axs = plt.subplots(2, N_cols, figsize=(5 * N_cols, 8), sharex=True)
-
-    # common_title_size = 14
-    # common_label_size = 12
-    # common_tick_size = 10
-    # facecolor = '#f7f7f7'
-    # grid_color = 'white'
-
-    # for i, year_column in enumerate(year_columns):
-        
-    #     line_color = color_map.get(year_column, 'black')
-        
-    #     if N_cols == 1:
-    #         ax_ut = axs[0]
-    #     else:
-    #         ax_ut = axs[0, i]
-            
-    #     subset_ut = long_formatUT_df[long_formatUT_df['year_column'] == year_column]
-        
-    #     ax_ut.plot(
-    #         subset_ut['year'],
-    #         subset_ut['count'],
-    #         linewidth=3.5,
-    #         color=line_color
-    #     )
-        
-    #     ax_ut.set_title(f"{year_column}", fontsize=common_title_size)
-        
-    #     ax_ut.set_facecolor(facecolor)
-    #     ax_ut.grid(True, which='both', color=grid_color, linestyle='-', linewidth=1.5)
-    #     ax_ut.set_axisbelow(True)
-    #     ax_ut.tick_params(axis='both', labelsize=common_tick_size)
-    #     ax_ut.set_xlim(2011, 2025)
-    #     ax_ut.set_xticks(list(range(2011, 2025, 2)) + [2025])
-    #     ax_ut.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{int(x)}'))
-        
-    #     if i == 0:
-    #         ax_ut.set_ylabel("Dataset count", fontsize=common_label_size)
-        
-    #     if N_cols == 1:
-    #         ax_all = axs[1]
-    #     else:
-    #         ax_all = axs[1, i]
-            
-    #     subset_all = long_format_df[long_format_df['year_column'] == year_column]
-        
-    #     ax_all.plot(
-    #         subset_all['year'],
-    #         subset_all['count'],
-    #         linewidth=3.5,
-    #         color=line_color
-    #     )
-
-    #     ax_all.set_facecolor(facecolor)
-    #     ax_all.grid(True, which='both', color=grid_color, linestyle='-', linewidth=1.5)
-    #     ax_all.set_axisbelow(True)
-    #     ax_all.tick_params(axis='both', labelsize=common_tick_size)
-    #     ax_all.set_xlim(2011, 2025)
-    #     ax_all.set_xticks(list(range(2011, 2025, 2)) + [2025])
-    #     ax_all.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{int(x)}'))
-        
-    #     if i == 0:
-    #         ax_all.set_ylabel("Dataset count", fontsize=common_label_size)
-    #     ax_all.set_xlabel("Year", fontsize=common_label_size)
-
-    # fig.suptitle('Comparison of Dataset Year Attributes (UT Austin vs. All Dryad)', fontsize=16, y=1.02)
-    # plt.subplots_adjust(hspace=0.5)
-    # fig.text(0.5, 0.95, 'UT Austin Dryad datasets', ha='center', va='center', fontsize=18, weight='bold')
-    # fig.text(0.5, 0.52, 'All Dryad datasets', ha='center', va='center', fontsize=18, weight='bold')
-    # plt.tight_layout(rect=[0.02, 0, 1, 0.98])
-
-    # plot_path = os.path.join(plots_dir, plot_filename)
-    # plt.savefig(plot_path, format=plotFormat, dpi=dpi)
-    # print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
-
-    #### bar graph version ####
-    plot_filename = f"{today_date}_dryad-timestamp-comparison-bar.{plotFormat}"
+    #### Bar graph version ####
+    plot_filename = f"{today}_dryad-timestamp-comparison-bar.{plotFormat}"
     TARGET_YEARS = list(range(2011, 2026)) # Includes 2011 through 2025
 
     color_map = {
@@ -918,23 +850,21 @@ if filtered_df is not None:
 
     plot_path = os.path.join(plots_dir, plot_filename)
     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    plt.close(fig)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
 
 ### RADS reanalysis (versions) ###
 patternC = '_RADS-figshare-datasets-progressive-filtering-summary.csv'
 df_rads = load_most_recent_file(outputs_dir, patternC)
 
-patternD = 'figshare-associated-articles-merged.csv'
-df_rads_figshare_articles = load_most_recent_file(outputs_dir, patternD)
-
 if df_rads is not None:
-    #get proportions of each count
+    # Get proportions of each count
     original_counts = df_rads[df_rads['type'] == 'Original'][['institution', 'entry_count']]
     original_counts = original_counts.rename(columns={'entry_count': 'original_count'})
     df_rads = df_rads.merge(original_counts, on='institution')
     df_rads['proportion'] = df_rads['entry_count'] / df_rads['original_count']
 
-    plot_filename = f"{today_date}_RADS-version-reduction-comparison.{plotFormat}"
+    plot_filename = f"{today}_RADS-version-reduction-comparison.{plotFormat}"
 
     type_colors = {
         'Original': "#8e1804",
@@ -971,4 +901,5 @@ if df_rads is not None:
 
     plot_path = os.path.join(plots_dir, plot_filename)
     plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    plt.close(fig)
     print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")

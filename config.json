@@ -109,7 +109,7 @@
             "column": "publisher"
         },
         {
-            "pattern": "The University of Texas at Austin, Bureau of Economic Geology",
+            "pattern": "The University of Texas at Austin, Bureau of Economic Geology|Bureau of Economic Geology \\(UT-BEG\\)",
             "replacement": "AmeriFlux",
             "case": false,
             "column": "publisher"

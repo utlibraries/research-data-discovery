@@ -40,8 +40,8 @@ A description of the of `TOGGLES` in `.env` is provided below:
 | Toggle | Description |
 |------|-------------|
 | `test` | `true` to enable to the test environment (lower limits on retrieval). |
-| `resource_type_filter` | `true` to filter for specified resource types in the general DataCite and Crossref queries |
-| `figshare_resource_type_filter` | `true` to filter for specified resource types in the figshare workaround |
+| `resource_type_filter` | `true` to filter for specified resource types in the general DataCite and Crossref queries; the types are defined in `RESOURCE_TYPES` (see below) |
+| `figshare_resource_type_filter` | `true` to filter for specified resource types in the figshare workaround; the types are defined in `RESOURCE_TYPES` (see below) |
 | `cross_validate` | `true` to cross-validate DataCite results against Dryad, Dataverse (optional, see next), and Zenodo APIs |
 | `dataverse` | `true` to cross-validate for Dataverse |
 | `dataverse_duplicates` | `true` to consolidate Dataverse records by shared metadata that suggest an oversplit set of materials into multiple datasets |
@@ -70,12 +70,19 @@ A description of the fields nested under `INSTITUTION` is provided below. Severa
 | `exact_affiliation` | `true` to run a DataCite query matching a single, exact institution name string (`datacite-ror-query.py`) |
 | `wildcard_affiliation` | `true` to run a DataCite query with a looser, wildcard-style name match (`datacite-ror-query.py`) |
 
+A description of the fields nested under `RESOURCE_TYPES` is provided below:
+| Field | Description |
+|------|-------------|
+| `general` | List of resource types (e.g., `["Dataset", "Software"]`) used to filter the general DataCite and Zenodo queries when `resource_type_filter` is `true` |
+| `figshare` | List of resource types used to filter the figshare workaround's DataCite query when `figshare_resource_type_filter` is `true` |
+| `crossref` | Single resource type string (e.g., `"dataset"`) used to filter the Crossref query |
+
 ### Third-party API access
 Users will need to create accounts for [Dataverse](https://guides.dataverse.org/en/latest/api/auth.html) and [Zenodo](https://developers.zenodo.org/) in order to obtain personalized API keys, add those to `.env.example`, and save it as a new `.env` file. If you wish to query multiple Dataverse installations (e.g., a non-Harvard institutional dataverse and Harvard Dataverse), you will need to get a key for each installation. Crossref, DataCite, Dryad, Figshare, and OpenAlex do not require API keys for standard access. Some APIs impose rate limiting (e.g., [Dryad](https://datadryad.org/api); [OpenAlex](https://help.openalex.org/hc/en-us/articles/24397762024087-Pricing); [Zenodo](https://developers.zenodo.org/#rate-limiting)). Zenodo also restricts the total number of records that can be retrieved with one query to 10,000. Dataverse installations may or may not have rate limits.
 
 ### Adaptation to another institution
 To use the workflow in its current state, but for another institution, users should do the following:
-1. Modify institution-specific information in `.env`. This is mainly under *INSTITUTIONS*, *PERMUTATIONS*, AND *PERMUTATIONS_IDENTIFIED*. *INSTITUTIONS* contains several fields; the only one that needs to be use a controlled vocabulary is the ROR field. You can short-hand/represent the others as you wish. *PERMUTATIONS* should contain as many permutations as you can think of that would reasonably occur. As DataCite has a limit on how many can be queried in one call (something like 36, I think), you should still to realistic ones and avoid highly granular ones (e.g., with departmental information). The wild-carding implemented in December 2025 has somewhat reduced the need for comprehensive permutations, but abbreviations are still important (e.g., 'UT Austin' and 'University of Texas at Austin'). *PERMUTATIONS_IDENTIFIED* should be the official institution name.
+1. Modify institution-specific information in `.env`. This is mainly under `INSTITUTION`, `PERMUTATIONS`, AND *`PERMUTATIONS_IDENTIFIED`*. `INSTITUTION` contains several fields (see above). `PERMUTATIONS` should contain as many permutations as you can think of that would reasonably occur. As DataCite has a limit on how many can be queried in one call (something like 36, I think), you should still to realistic ones and avoid highly granular ones (e.g., with departmental information). The wild-carding implemented in December 2025 has somewhat reduced the need for comprehensive permutations, but abbreviations are still important (e.g., 'UT Austin' and 'University of Texas at Austin'). `PERMUTATIONS_IDENTIFIED` should be the official institution name.
 2. Provide user-specific information in `.env`. This includes at least your email (for making polite API calls). Get your own API tokens if you will be doing cross-validation (this is recommended for a first run in order to identify additional permutations of the institution's name). If you want to cross-validate with a Dataverse repository, you will need to change *url_dataverse* to the target one. For any Dataverse that is NOT multi-institutional, the *subtree* parameter can be removed as well.
 3. Run and refine. You will probably want to run in the test env first just to make sure things are working as expected (see below). Then you would want to do a production run with *cross_validate* set to 'true' to identify more permutations and check the outputs for institution-specific things like repository names that should be standardized (this is *REPOSITORY_MAPPING* in `config.json`).
 
