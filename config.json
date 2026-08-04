@@ -122,16 +122,25 @@
         }
     ],
     "FIGSHARE_PARTNERS": {
-        "Microbiology Society": "https://openalex.org/P4310320497",
-        "The Royal Society": "https://openalex.org/P4310319787",
-        "Taylor & Francis": "https://openalex.org/P4310320547",
-        "Karger Publishers": "https://openalex.org/P4310317820",
         "AIP Publishing": "https://openalex.org/P4310320061",
+        "Optica Publishing Group": "https://openalex.org/P4310315679",
+        "American Association for Cancer Research": "https://openalex.org/P4310320273",
+        "American Chemical Society": "https://openalex.org/P4310320006",
+        "American Society of Agricultural and Biological Engineers": "https://openalex.org/P4320800553",
+        "Amsterdam University Press": "https://openalex.org/P4310318533",
+        "American Speech-Language-Hearing Association": "https://openalex.org/P4310320281",
+        "Brepols": "https://openalex.org/P4310322758",
         "Brill": "https://openalex.org/P4310320561",
+        "Frontiers": "https://openalex.org/P4310320527",
         "Genetics Society of America": "https://openalex.org/P4310319844",
         "Geological Society of America": "https://openalex.org/P4310311650",
+        "Geological Society of London": "https://openalex.org/P4310311650",
+        "IntechOpen": "https://openalex.org/P4310322558",
         "IOP Publishing": "https://openalex.org/P4310320083",
-        "Optica Publishing Group": "https://openalex.org/P4310315679"
+        "Karger Publishers": "https://openalex.org/P4310317820",
+        "Microbiology Society": "https://openalex.org/P4310320497",
+        "The Royal Society": "https://openalex.org/P4310319787",
+        "Taylor & Francis": "https://openalex.org/P4310320547"
     },
     "VARIABLES": {
         "PAGE_SIZES": {

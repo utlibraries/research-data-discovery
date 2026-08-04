@@ -3,7 +3,7 @@
 # Scripted process for retrieving metadata on institutional-affiliated research dataset publications
 
 ## Metadata
-* *Version*: 2.4.0 (**not released to Zenodo**)
+* *Version*: 2.5.0 (**not released to Zenodo**)
 * *Released*: 2026/08/04
 * *Author(s)*: Bryan Gee (UT Libraries, University of Texas at Austin; bryan.gee@austin.utexas.edu; ORCID: [0000-0003-4517-3290](https://orcid.org/0000-0003-4517-3290))
 * *Contributor(s)*: None
@@ -35,6 +35,40 @@ This project uses [uv](https://docs.astral.sh/uv/) for package management. To ge
 
 ### env file
 API keys, numerical API query parameters (e.g., records per page, page limit), and other lists/dictionaries are defined in `.env`; the file is JSON-formatted to allow for nesting of the many parameters. The file included in this repository called `.env.example` should be populated with API keys (see below) and saved as a new `.env` file before running any scripts. If running this for another institution, you will need to do some additional customization for your institution.
+
+A description of the of `TOGGLES` in `.env` is provided below:
+| Toggle | Description |
+|------|-------------|
+| `test` | `true` to enable to the test environment (lower limits on retrieval). |
+| `resource_type_filter` | `true` to filter for specified resource types in the general DataCite and Crossref queries |
+| `figshare_resource_type_filter` | `true` to filter for specified resource types in the figshare workaround |
+| `cross_validate` | `true` to cross-validate DataCite results against Dryad, Dataverse (optional, see next), and Zenodo APIs |
+| `dataverse` | `true` to cross-validate for Dataverse |
+| `dataverse_duplicates` | `true` to consolidate Dataverse records by shared metadata that suggest an oversplit set of materials into multiple datasets |
+| `austin` | `true` only for UT Austin - triggers institution-specific cleaning steps |
+| `figshare_workflow_1` | `true` to run the first figshare workflow |
+| `figshare_workflow_2` | `true` to run the second figshare workflow |
+| `figshare_load_previous` | `true` to load a previous figshare retrieval from CSV |
+| `figshare_versions` | `true` to treat each version of a figshare deposit as a unique record  |
+| `figshare_workflow_2_indexer` | either 'OpenAlex' or 'Crossref' |
+| `load_previous_data` | `true` to load a previous DataCite retrieval from CSV |
+| `ncbi_workflow` | `true` to run a NCBI retrieval |
+| `ncbi_load_previous` | `true` to load a previous, fully-processed NCBI retrieval from CSV, skipping the NCBI stage entirely |
+| `load_ncbi_data` | `true` to skip the Entrez web call and re-parse a previously-downloaded XML file instead (re-runs conversion to df) |
+| `crossref_workflow` | `true` to run a Crossref retrieval |
+| `load_crossref` | `true` to load a previous Crossref retrieval from CSV |
+
+A description of the fields nested under `INSTITUTION` is provided below. Several of the boolean fields are used only by accessory scripts, not by `dataset-records-retrieval.py` itself:
+| Field | Description |
+|------|-------------|
+| `name` | Full official institution name; used as the NCBI Entrez search term, in log/summary text, and as a filler value where a matched affiliation permutation is otherwise required |
+| `uniqueIdentifier` | A short, reliable substring of the institution name (e.g. `Austin`) used as a quick filter for affiliation strings, such as narrowing NCBI BioProject results to likely-affiliated records |
+| `ror` | The institution's [ROR](https://ror.org/) identifier; required for the Dryad API's affiliation search, and used by `datacite-ror-query.py`/`plos-webscraping-supp-info.py` |
+| `filename` | A filename-safe string (e.g. `ut-austin`) used in accessory-script output filenames |
+| `affiliated` | `true` to restrict Figshare-partner metadata summaries to institution-affiliated deposits, `false` for all deposits from that publisher, regardless of affiliation (`datacite-figshare-partner-query_metadata-only.py`) |
+| `ror_affiliation` | `true` to run a DataCite query matching on the institution's ROR ID (`datacite-ror-query.py`) |
+| `exact_affiliation` | `true` to run a DataCite query matching a single, exact institution name string (`datacite-ror-query.py`) |
+| `wildcard_affiliation` | `true` to run a DataCite query with a looser, wildcard-style name match (`datacite-ror-query.py`) |
 
 ### Third-party API access
 Users will need to create accounts for [Dataverse](https://guides.dataverse.org/en/latest/api/auth.html) and [Zenodo](https://developers.zenodo.org/) in order to obtain personalized API keys, add those to `.env.example`, and save it as a new `.env` file. If you wish to query multiple Dataverse installations (e.g., a non-Harvard institutional dataverse and Harvard Dataverse), you will need to get a key for each installation. Crossref, DataCite, Dryad, Figshare, and OpenAlex do not require API keys for standard access. Some APIs impose rate limiting (e.g., [Dryad](https://datadryad.org/api); [OpenAlex](https://help.openalex.org/hc/en-us/articles/24397762024087-Pricing); [Zenodo](https://developers.zenodo.org/#rate-limiting)). Zenodo also restricts the total number of records that can be retrieved with one query to 10,000. Dataverse installations may or may not have rate limits.

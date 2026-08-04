@@ -2,6 +2,9 @@
 
 The current version scheme follows a MAJOR.MINOR.PATCH format, with a 'major' change involving added functionality or significant revisions to the workflow; a 'minor' change involving addition of accessory files or minor revisions to the workflow (e.g., refactoring); and a 'patch' is a bug fix.
 
+## 2.5.0
+Implements minor updates to documentation and accessory files. ⚠️ *Notice of development hiatus: As of August 2026, this codebase is not under active development. When development resumes, this notice will be removed.*
+
 ## 2.4.0
 Implements stylistic improvements, significant code refactoring for consolidation, integration of the Crossref search into the primary `dataset-records-retrieval.py` script, and bug fixes. Deprecates many accessory scripts (though retains their availability). Converts to joint .env (secrets, dynamic) and config.json (static) variable system.
 
