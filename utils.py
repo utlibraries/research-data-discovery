@@ -1,3 +1,4 @@
+import json
 import math
 import os
 import pandas as pd
@@ -7,6 +8,27 @@ from urllib.parse import urlparse, parse_qs
 
 # Getting root directory
 ROOT_DIR = Path(__file__).resolve().parent
+
+# Loads secrets/dynamic values from .env and static values from config.json, merged into a
+# single dict shaped like the original env.json (env['KEYS'], env['VARIABLES'], etc.)
+def load_env_config():
+    env = {}
+    with open(ROOT_DIR / '.env', 'r', encoding='utf-8') as file:
+        for line in file:
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            key, value = line.split('=', 1)
+            value = value.strip()
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+                value = value[1:-1]
+            env[key] = json.loads(value)
+
+    with open(ROOT_DIR / 'config.json', 'r', encoding='utf-8') as file:
+        config = json.load(file)
+    env.update(config)
+
+    return env
 
 ### API retrieval functions ###
 
@@ -307,6 +329,62 @@ def retrieve_all_journals(url_template, journal_list, params_crossref_journal, p
 
 ### Metadata cleaning / assessment functions ###
 
+# Formats a list of person dicts (creators/contributors/authors) as 'Name (Affiliation)' strings,
+# normalizing any 'Austin' affiliation to the full institution name
+def format_people_with_affiliations(people, get_name=lambda p: p.get('name', '').strip(), affiliation_key='affiliation', dedupe_affiliations=False):
+    formatted = []
+    for person in people:
+        name = get_name(person)
+        affiliations = person.get(affiliation_key, [])
+        updated_affiliations = []
+        for affil in affiliations:
+            affil_name = affil.get('name', '') if isinstance(affil, dict) else affil
+            if 'Austin' in affil_name:
+                affil_name = 'University of Texas at Austin'
+            updated_affiliations.append(affil_name)
+        if dedupe_affiliations:
+            updated_affiliations = list(dict.fromkeys(updated_affiliations))
+        affil_str = ', '.join(updated_affiliations) if updated_affiliations else 'No affiliation listed'
+        formatted.append(f'{name} ({affil_str})')
+    return formatted
+
+# Maps free-text rights/license strings in a 'rights' column to a standardized license label
+def standardize_rights(df, rights_column='rights'):
+    rights_standardized = pd.Series('Rights unclear', index=df.index)
+    rights = df[rights_column]
+    rights_standardized[rights.str.contains('Creative Commons Zero|CC0')] = 'CC0'
+    rights_standardized[rights.str.contains('Creative Commons Attribution Non Commercial Share Alike')] = 'CC BY-NC-SA'
+    rights_standardized[rights.str.contains('Creative Commons Attribution Non Commercial')] = 'CC BY-NC'
+    rights_standardized[rights.str.contains('Creative Commons Attribution 3.0|Creative Commons Attribution 4.0|Creative Commons Attribution-NonCommercial')] = 'CC BY'
+    rights_standardized[rights.str.contains('GNU General Public License')] = 'GNU GPL'
+    rights_standardized[rights.str.contains('Apache License')] = 'Apache'
+    rights_standardized[rights.str.contains('MIT License')] = 'MIT'
+    rights_standardized[rights.str.contains('BSD')] = 'BSD'
+    rights_standardized[rights.str.contains('ODC-BY')] = 'ODC-BY'
+    rights_standardized[rights.str.contains('Open Access')] = 'Rights unclear'
+    rights_standardized[rights.str.contains('Closed Access')] = 'Restricted access'
+    rights_standardized[rights.str.contains('Restricted Access')] = 'Restricted access'
+    rights_standardized[rights.str.contains('Databrary')] = 'Custom terms'
+    rights_standardized[rights.str.contains('UCAR')] = 'Custom terms'
+    rights_standardized[rights == ''] = 'Rights unclear'
+    return rights_standardized
+
+# Conditionally folds an optional pipeline stage's dataframe into the running combined dataframe;
+# no-op (and stage not recorded) if the stage produced nothing, so a skipped/failed stage is harmless
+def merge_stage(df_current, stage_df, stage_name, completed_stages):
+    if stage_df is not None and not stage_df.empty:
+        df_current = pd.concat([df_current, stage_df], ignore_index=True)
+        completed_stages.append(stage_name)
+    return df_current, completed_stages
+
+# Saves a pipeline stage's raw output under a fixed filename so a later run can skip re-fetching it
+def save_stage_checkpoint(df, data_dir, stage_name):
+    df.to_csv(Path(data_dir) / f'checkpoint_{stage_name}.csv', index=False, encoding='utf-8-sig')
+
+# Loads a pipeline stage's previously checkpointed raw output
+def load_stage_checkpoint(data_dir, stage_name):
+    return pd.read_csv(Path(data_dir) / f'checkpoint_{stage_name}.csv')
+
 # Determines which author (first vs. last or both) is affiliated
 def determine_affiliation(row, ut_variations):
     if row['first_author'] == row['last_author']:
@@ -383,3 +461,12 @@ def adjust_descriptive_count(row):
     if any(keyword in title.lower() for keyword in keywords):
         return max(0, desc_count - 1)
     return desc_count
+
+# Adds title-descriptiveness metadata columns (title_reformatted, word counts) to a dataframe in place
+def add_title_metadata(df, nondescriptive_words, title_column='title'):
+    df['title_reformatted'] = df[title_column].str.replace('_', ' ') #gets around text linked by underscores counting as 1 word
+    df['title_reformatted'] = df['title_reformatted'].str.lower()
+    df[['total_word_count_title', 'descriptive_word_count_title']] = df['title_reformatted'].apply(lambda x: pd.Series(count_words(x, nondescriptive_words)))
+    df['descriptive_word_count_title'] = df.apply(adjust_descriptive_count, axis=1)
+    df['nondescriptive_word_count_title'] = df['total_word_count_title'] - df['descriptive_word_count_title']
+    return df

@@ -2,21 +2,25 @@ import os
 import json
 import pandas as pd
 import requests
+import sys
 from datetime import datetime
 
+#call functions from parent utils.py file
+utils_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.insert(0, utils_dir)
+from utils import load_env_config
+
 #setting timestamp to calculate run time
-start_time = datetime.now() 
+start_time = datetime.now()
 #creating variable with current date for appending to filenames
-today_date = datetime.now().strftime('%Y%m%d') 
+today_date = datetime.now().strftime('%Y%m%d')
 
 #API urls
 url_crossref = "https://api.crossref.org/works/"
 url_datacite = 'https://api.datacite.org/dois'
 
 #read in env file
-parent = os.path.abspath(os.path.join(os.getcwd(), '..'))
-with open(f'{parent}/env.json', 'r') as file:
-    env = json.load(file)
+env = load_env_config()
 institution = env['INSTITUTION']['filename']
 
 #for reading in previously generated file of all discovered datasets
