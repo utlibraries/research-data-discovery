@@ -5,14 +5,12 @@ import os
 import sys
 
 #call functions from parent utils.py file
-utils_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-sys.path.insert(0, utils_dir) 
-from utils import retrieve_datacite_summary 
+utils_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.insert(0, utils_dir)
+from utils import load_env_config, retrieve_datacite_summary
 
 #read in env file
-parent = os.path.abspath(os.path.join(os.getcwd(), '..'))
-with open(f'{parent}/env.json', 'r') as file:
-    env = json.load(file)
+env = load_env_config()
 
 #setting timestamp to calculate run time
 start_time = datetime.now() 
@@ -24,9 +22,7 @@ today_date = datetime.now().strftime("%Y%m%d")
 affiliated = env['INSTITUTION']['affiliated']
 
 #read in env file
-parent = os.path.abspath(os.path.join(os.getcwd(), '..'))
-with open(f'{parent}/env.json', 'r') as file:
-    env = json.load(file)
+env = load_env_config()
 
 #all DataCite Figshare partners
 figshare_partners_keys = list(env['FIGSHARE_PARTNERS'].keys())

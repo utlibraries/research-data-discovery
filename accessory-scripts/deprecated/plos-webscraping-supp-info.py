@@ -8,14 +8,12 @@ import requests
 import sys
 
 #call functions from parent utils.py file
-utils_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-sys.path.insert(0, utils_dir) 
-from utils import retrieve_openalex 
+utils_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.insert(0, utils_dir)
+from utils import load_env_config, retrieve_openalex
 
 #read in env file
-parent = os.path.abspath(os.path.join(os.getcwd(), '..'))
-with open(f'{parent}/env.json', 'r') as file:
-    env = json.load(file)
+env = load_env_config()
 
 #operator for quick test runs
 test = env['TOGGLES']['test']

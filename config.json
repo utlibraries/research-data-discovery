@@ -1,102 +1,125 @@
 {
-    "KEYS": {
-        "zenodoToken": "",
-        "dataverseToken": ""
-    },
-    "TOGGLES":{
-        "test": false,
-        "resource_type_filter": true,
-        "figshare_resource_type_filter": true,
-        "cross_validate": true,
-        "dataverse": true,
-        "dataverse_duplicates": false,
-        "austin": true,
-        "figshare_workflow_1": true,
-        "figshare_workflow_2": false,
-        "figshare_versions": false,
-        "figshare_workflow_2_indexer": "OpenAlex",
-        "load_previous_data": false,
-        "load_previous_data_plus": false,
-        "ncbi_workflow": true,
-        "biopython": true,
-        "load_ncbi_data": false,
-        "load_previous_data_plus_ncbi": false,
-        "load_crossref": true                        
-    },
-    "EMAIL": {
-        "user_email": ""
-    },
-    "INSTITUTION":{
-        "affiliated": false,
-        "name": "The University of Texas at Austin",
-        "uniqueIdentifier": "Austin",
-        "ror": "https://ror.org/00hj54h04",
-        "filename": "ut-austin",
-        "ror_affiliation": true,
-        "exact_affiliation": false,
-        "wildcard_affiliation": false
-    },
-    "PERMUTATIONS": [
-        "The University of Texas at Austin",
-        "the University of Texas at Austin",
-        "(University of Texas at Austin)",
-        "(University Of Texas At Austin)",
-        "The University Of Texas At Austin",
-        "the university of texas at austin",
-        "University Of Texas At Austin",
-        "University of Texas at Austin",
-        "university of texas at austin",
-        "UNIVERSITY OF TEXAS AT AUSTIN",
-        "University of Texas, Austin",
-        "UNIVERSITY OF TEXAS, AUSTIN",
-        "UNIVERSITY OF TEXAS AUSTIN",
-        "UNIVERSITY OF TEXAS - AUSTIN",
-        "University of Texas - Austin",
-        "University of Texas-Austin",
-        "The University of Texas - Austin",
-        "The University of Texas, Austin",
-        "University Of Texas, Austin",
-        "University of Texas at Austin (UT) (UT Austin)",
-        "University Of Texas At Austin (UT)",
-        "UT Austin",
-        "UT austin",
-        "UT-Austin",
-        "UT, Austin",
-        "University of Texas-Austin",
-        "The University of Texas-Austin",
-        "University of Texas at Austin (utexas.edu)",
-        "The University Of Texas High-Resolution X-Ray CT Facility (UTCT)",
-        "The University of Texas--Austin",
-        "University of Texas--Austin",
-        "University ot Texas at Austin",
-        "university of Texas at Austin",
-        "University of Texas Austin",
-        "University fo Texas at Austin"
-    ],
-    "PERMUTATIONS_IDENTIFIED": [
-        "The University of Texas at Austin"
-    ],
     "REPOSITORY_MAPPING": [
-        {"pattern": "4TU", "replacement": "4TU.ResearchData", "case": true, "column": "publisher"},
-        {"pattern": "BCO-DMO|Biological and Chemical Oceanography Data", "replacement": "Biol Chem Ocean Data Mgmt Office", "case": true, "column": "publisher"},
-        {"pattern": "Consortium of Universities for the Advancement of Hydrologic Science, Inc", "replacement": "CUAHSI", "case": false, "column": "publisher"},
-        {"pattern": "DR-NTU", "replacement": "Digital Repository of Nanyang Technological University", "case": true, "column": "publisher"},
-        {"pattern": "Digital Rocks", "replacement": "Digital Porous Media Portal", "case": false, "column": "publisher"},
-        {"pattern": "Energy Data eXchange", "replacement": "Energy Data eXchange", "case": true, "column": "publisher"},
-        {"pattern": "Environmental Molecular Sciences Laboratory", "replacement": "Environ Mol Sci Lab", "case": true, "column": "publisher"},
-        {"pattern": "Environmental System Science Data Infrastructure for a Virtual Ecosystem|Southeast Texas Urban Integrated Field Laboratory", "replacement": "ESS-DIVE", "case": false, "column": "publisher"},
-        {"pattern": "ICPSR", "replacement": "ICPSR", "case": true, "column": "publisher"},
-        {"pattern": "MultiSector Dynamics", "replacement": "MSD-Live Data Repository", "case": true, "column": "publisher"},
-        {"pattern": "NCAR", "replacement": "NSF NCAR Earth Observing Laboratory", "case": true, "column": "publisher"},
-        {"pattern": "Oak Ridge", "replacement": "Oak Ridge National Laboratory", "case": true, "column": "publisher"},
-        {"pattern": "PARADIM", "replacement": "PARADIM", "case": true, "column": "publisher"},
-        {"pattern": "Plazi|Journal of Hymenoptera Research", "replacement": "Plazi TreatmentBank", "case": false, "column": "publisher"},
-        {"pattern": "Princeton Plasma Physics Laboratory, Princeton University", "replacement": "Princeton Data Commons", "case": false, "column": "publisher"},
-        {"pattern": "Scratchpads|Biodiversity Collection|Algae", "replacement": "Global Biodiversity Information Facility (GBIF)", "case": true, "column": "publisher"},
-        {"pattern": "Taylor & Francis|SAGE|The Royal Society|SciELO journals", "replacement": "figshare", "case": true, "column": "publisher"},
-        {"pattern": "Texas Data Repository|Texas Research Data Repository", "replacement": "Texas Data Repository", "case": false, "column": "publisher"},
-        {"pattern": "The University of Texas at Austin, Bureau of Economic Geology", "replacement": "AmeriFlux", "case": false, "column": "publisher"},
-        {"pattern": "zenodo", "replacement": "Zenodo", "case": false, "column": "doi"}
+        {
+            "pattern": "4TU",
+            "replacement": "4TU.ResearchData",
+            "case": true,
+            "column": "publisher"
+        },
+        {
+            "pattern": "BCO-DMO|Biological and Chemical Oceanography Data",
+            "replacement": "Biol Chem Ocean Data Mgmt Office",
+            "case": true,
+            "column": "publisher"
+        },
+        {
+            "pattern": "Consortium of Universities for the Advancement of Hydrologic Science, Inc",
+            "replacement": "CUAHSI",
+            "case": false,
+            "column": "publisher"
+        },
+        {
+            "pattern": "DR-NTU",
+            "replacement": "Digital Repository of Nanyang Technological University",
+            "case": true,
+            "column": "publisher"
+        },
+        {
+            "pattern": "Digital Rocks",
+            "replacement": "Digital Porous Media Portal",
+            "case": false,
+            "column": "publisher"
+        },
+        {
+            "pattern": "Energy Data eXchange",
+            "replacement": "Energy Data eXchange",
+            "case": true,
+            "column": "publisher"
+        },
+        {
+            "pattern": "Environmental Molecular Sciences Laboratory",
+            "replacement": "Environ Mol Sci Lab",
+            "case": true,
+            "column": "publisher"
+        },
+        {
+            "pattern": "Environmental System Science Data Infrastructure for a Virtual Ecosystem|Southeast Texas Urban Integrated Field Laboratory",
+            "replacement": "ESS-DIVE",
+            "case": false,
+            "column": "publisher"
+        },
+        {
+            "pattern": "ICPSR",
+            "replacement": "ICPSR",
+            "case": true,
+            "column": "publisher"
+        },
+        {
+            "pattern": "MultiSector Dynamics",
+            "replacement": "MSD-Live Data Repository",
+            "case": true,
+            "column": "publisher"
+        },
+        {
+            "pattern": "NCAR",
+            "replacement": "NSF NCAR Earth Observing Laboratory",
+            "case": true,
+            "column": "publisher"
+        },
+        {
+            "pattern": "Oak Ridge",
+            "replacement": "Oak Ridge National Laboratory",
+            "case": true,
+            "column": "publisher"
+        },
+        {
+            "pattern": "PARADIM",
+            "replacement": "PARADIM",
+            "case": true,
+            "column": "publisher"
+        },
+        {
+            "pattern": "Plazi|Journal of Hymenoptera Research",
+            "replacement": "Plazi TreatmentBank",
+            "case": false,
+            "column": "publisher"
+        },
+        {
+            "pattern": "Princeton Plasma Physics Laboratory, Princeton University",
+            "replacement": "Princeton Data Commons",
+            "case": false,
+            "column": "publisher"
+        },
+        {
+            "pattern": "Scratchpads|Biodiversity Collection|Algae",
+            "replacement": "Global Biodiversity Information Facility (GBIF)",
+            "case": true,
+            "column": "publisher"
+        },
+        {
+            "pattern": "Taylor & Francis|SAGE|The Royal Society|SciELO journals",
+            "replacement": "figshare",
+            "case": true,
+            "column": "publisher"
+        },
+        {
+            "pattern": "Texas Data Repository|Texas Research Data Repository",
+            "replacement": "Texas Data Repository",
+            "case": false,
+            "column": "publisher"
+        },
+        {
+            "pattern": "The University of Texas at Austin, Bureau of Economic Geology",
+            "replacement": "AmeriFlux",
+            "case": false,
+            "column": "publisher"
+        },
+        {
+            "pattern": "zenodo",
+            "replacement": "Zenodo",
+            "case": false,
+            "column": "doi"
+        }
     ],
     "FIGSHARE_PARTNERS": {
         "Microbiology Society": "https://openalex.org/P4310320497",
@@ -117,10 +140,11 @@
             "datacite": 1000,
             "dataverse": 200,
             "openalex": 200,
-            "zenodo": 200
+            "zenodo": 200,
+            "ncbi": 200
         },
         "PAGE_LIMITS": {
-            "crossref_test": 25,
+            "crossref_test": 15,
             "crossref_prod": 700,
             "datacite_test": 5,
             "datacite_prod": 600,
@@ -140,14 +164,80 @@
         }
     },
     "WORDS": {
-        "articles": ["a", "the", "thee", "an"],
-        "conjunctions": ["and", "or", "but"],
-        "prepositions": ["in", "to", "of", "for", "with", "as", "from"],
-        "auxiliary_verbs": ["is", "are", "was", "were"],
-        "possessives": ["our", "my"],
-        "descriptors": ["data", "dataset", "dataverse", "repository", "code", "codes", "script", "scripts", "software", "supplemental", "supplementary", "supporting", "figure", "table", "figures", "tables", "file", "files", "et al.", "raw", "manuscript", "article", "journal", "preprint", "replication", "readme", "github", "final", "output"],
-        "order": ["S1", "S2", "S3"],
-        "version": ["v1", "v1.0", "v2", "v2.0", "v3", "v3.0"]
+        "articles": [
+            "a",
+            "the",
+            "thee",
+            "an"
+        ],
+        "conjunctions": [
+            "and",
+            "or",
+            "but"
+        ],
+        "prepositions": [
+            "in",
+            "to",
+            "of",
+            "for",
+            "with",
+            "as",
+            "from"
+        ],
+        "auxiliary_verbs": [
+            "is",
+            "are",
+            "was",
+            "were"
+        ],
+        "possessives": [
+            "our",
+            "my"
+        ],
+        "descriptors": [
+            "data",
+            "dataset",
+            "dataverse",
+            "repository",
+            "code",
+            "codes",
+            "script",
+            "scripts",
+            "software",
+            "supplemental",
+            "supplementary",
+            "supporting",
+            "figure",
+            "table",
+            "figures",
+            "tables",
+            "file",
+            "files",
+            "et al.",
+            "raw",
+            "manuscript",
+            "article",
+            "journal",
+            "preprint",
+            "replication",
+            "readme",
+            "github",
+            "final",
+            "output"
+        ],
+        "order": [
+            "S1",
+            "S2",
+            "S3"
+        ],
+        "version": [
+            "v1",
+            "v1.0",
+            "v2",
+            "v2.0",
+            "v3",
+            "v3.0"
+        ]
     },
     "FORMAT_MAP": {
         "application/dbf": "DBF",

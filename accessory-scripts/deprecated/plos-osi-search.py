@@ -5,19 +5,23 @@ import math
 import numpy as np
 import os
 import re
+import sys
 import zipfile
 from datetime import datetime
 from pathlib import Path
 
+#call functions from parent utils.py file
+utils_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.insert(0, utils_dir)
+from utils import load_env_config
+
 #setting timestamp at start of script to calculate run time
-start_time = datetime.now() 
+start_time = datetime.now()
 #creating variable with current date for appending to filenames
-today_date = datetime.now().strftime("%Y%m%d") 
+today_date = datetime.now().strftime("%Y%m%d")
 
 #read in env file
-parent = os.path.abspath(os.path.join(os.getcwd(), '..'))
-with open(f'{parent}/env.json', 'r') as file:
-    env = json.load(file)
+env = load_env_config()
 
 #create directory for PLOS data
 if os.path.isdir("inputs"):
