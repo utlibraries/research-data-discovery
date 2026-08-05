@@ -14,3 +14,9 @@ dependencies = [
     "requests>=2.34.2",
     "selenium>=4.45.0",
 ]
+
+[tool.uv]
+# This repo is worked on from within a OneDrive-synced folder, which does not
+# support hardlinking into the uv cache. Without this, `uv sync` fails with
+# "cloud operation cannot be performed on a file with incompatible hardlinks."
+link-mode = "copy"
