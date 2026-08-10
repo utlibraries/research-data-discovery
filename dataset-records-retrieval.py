@@ -88,6 +88,10 @@ LOG_DIR = OUTPUT_DIR / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 DATA_DIR = OUTPUT_DIR / "data"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
+## Composite log lives outside test/outputs so it writes to the same file regardless of env
+COMP_LOG_DIR = ROOT_DIR / "logs"
+COMP_LOG_DIR.mkdir(parents=True, exist_ok=True)
+COMP_LOG_FILE = COMP_LOG_DIR / "composite-log.csv"
 
 # Setting timestamp to calculate run time
 start_time = datetime.now() 
@@ -1846,12 +1850,6 @@ with open(f'{LOG_DIR}/{unique_timestamp}-log.txt', 'w') as resultssummaryfile:
     resultssummaryfile.write('\n')
 
 # Writes to master CSV file
-## Ensuring it writes to the same file regardless of env
-script_dir = os.path.dirname(os.path.abspath(__file__))
-comp_log_dir = os.path.join(script_dir, 'logs')
-comp_log_file = os.path.join(comp_log_dir, 'composite-log.csv')
-file_exists = os.path.exists(comp_log_file)
-
 log_entry = {
     'script_name': os.path.basename(__file__),
     'timestamp': start_timezone_formatted,
@@ -1874,12 +1872,12 @@ log_entry = {
 }
 
 try:
-    df = pd.read_csv(comp_log_file)
+    df = pd.read_csv(COMP_LOG_FILE)
     df = pd.concat([df, pd.DataFrame([log_entry])], ignore_index=True)
 except FileNotFoundError:
     df = pd.DataFrame([log_entry])
 
-df.to_csv(comp_log_file, index=False)
+df.to_csv(COMP_LOG_FILE, index=False)
 
 print('Logging completed. Script completed.\n')
 
