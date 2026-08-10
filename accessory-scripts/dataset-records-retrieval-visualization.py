@@ -9,10 +9,14 @@ from datetime import datetime
 # Call functions from parent utils.py file
 utils_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, utils_dir) 
-from utils import load_most_recent_file 
+from utils import load_env_config, load_most_recent_file, save_plot
+
+# Read in env file for export directory configuration
+env = load_env_config()
+export_dirs = env.get('EXPORT_DIRS', [])
 
 # Creating variable with current date for appending to filenames
-today = datetime.now().strftime("%Y%m%d") 
+today = datetime.now().strftime("%Y%m%d")
 # Toggle for file format (prefer TIFF, if not, use PNG)
 tiff = False
 if tiff:
@@ -92,11 +96,10 @@ if df_datacite is not None:
     ax1.set_axisbelow(True)
     plt.tight_layout()
     # plt.show()
-    plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    saved_paths = save_plot(fig, plot_filename, plots_dir, export_dirs, format=plotFormat, dpi=dpi)
     plt.close(fig)
 
-    print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
+    print(f"{plot_filename} has been saved successfully at {', '.join(str(p) for p in saved_paths)}.\n")
 
     ### Which institutional permutation was detected ###
     plot_filename = f"{today}_affiliation-permutation-counts.{plotFormat}"
@@ -114,10 +117,9 @@ if df_datacite is not None:
     ax1.set_axisbelow(True)
     plt.tight_layout()
     # plt.show()
-    plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    saved_paths = save_plot(fig, plot_filename, plots_dir, export_dirs, format=plotFormat, dpi=dpi)
     plt.close(fig)
-    print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
+    print(f"{plot_filename} has been saved successfully at {', '.join(str(p) for p in saved_paths)}.\n")
 
 ### Repository count ###
 #### Toggle for whether or not to include an aggregate 'Other' bar for low-count repositories
@@ -143,10 +145,9 @@ if df_all_repos_plus is not None:
     ax1.set_axisbelow(True)
     plt.tight_layout()
     # plt.show()
-    plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    saved_paths = save_plot(fig, plot_filename, plots_dir, export_dirs, format=plotFormat, dpi=dpi)
     plt.close(fig)
-    print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
+    print(f"{plot_filename} has been saved successfully at {', '.join(str(p) for p in saved_paths)}.\n")
 
     ### Restrict to first/last author UT datasets
     plot_filename = f"{today}_repository-counts-30-plus_UT-first-last.{plotFormat}"
@@ -169,10 +170,9 @@ if df_all_repos_plus is not None:
     ax1.set_axisbelow(True)
     plt.tight_layout()
     # plt.show()
-    plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    saved_paths = save_plot(fig, plot_filename, plots_dir, export_dirs, format=plotFormat, dpi=dpi)
     plt.close(fig)
-    print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
+    print(f"{plot_filename} has been saved successfully at {', '.join(str(p) for p in saved_paths)}.\n")
 
 
 ### Discovered Figshare deposits ###
@@ -191,10 +191,9 @@ if df_extra_figshare is not None:
     ax1.set_axisbelow(True)
     plt.tight_layout()
     # plt.show()
-    plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    saved_paths = save_plot(fig, plot_filename, plots_dir, export_dirs, format=plotFormat, dpi=dpi)
     plt.close(fig)
-    print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
+    print(f"{plot_filename} has been saved successfully at {', '.join(str(p) for p in saved_paths)}.\n")
 
 ### Mendeley Data deposit volume over time ###
 if df_all_repos is not None:
@@ -217,10 +216,9 @@ if df_all_repos is not None:
     ax1.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{int(x)}'))
     plt.tight_layout()
     # plt.show()
-    plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    saved_paths = save_plot(fig, plot_filename, plots_dir, export_dirs, format=plotFormat, dpi=dpi)
     plt.close(fig)
-    print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
+    print(f"{plot_filename} has been saved successfully at {', '.join(str(p) for p in saved_paths)}.\n")
 
 ### Repository deposit volume over time ###
 if df_all_repos_plus is not None:
@@ -286,10 +284,9 @@ if df_all_repos_plus is not None:
 
     plt.tight_layout()
 
-    plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    saved_paths = save_plot(fig, plot_filename, plots_dir, export_dirs, format=plotFormat, dpi=dpi)
     plt.close(fig)
-    print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
+    print(f"{plot_filename} has been saved successfully at {', '.join(str(p) for p in saved_paths)}.\n")
 
     ### Only for first/last author UT datasets
     plot_filename = f"{today}_repositories-by-year_UT-first-last.{plotFormat}"
@@ -329,10 +326,9 @@ if df_all_repos_plus is not None:
 
     plt.tight_layout()
 
-    plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    saved_paths = save_plot(fig, plot_filename, plots_dir, export_dirs, format=plotFormat, dpi=dpi)
     plt.close(fig)
-    print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
+    print(f"{plot_filename} has been saved successfully at {', '.join(str(p) for p in saved_paths)}.\n")
 
 ### Authorship position of UT researcher ###
 if df_all_repos_plus is not None:
@@ -361,10 +357,9 @@ if df_all_repos_plus is not None:
     ax.tick_params(axis='both', which='major', labelsize=14)
     ax.set_axisbelow(True)
     plt.tight_layout()
-    plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    saved_paths = save_plot(fig, plot_filename, plots_dir, export_dirs, format=plotFormat, dpi=dpi)
     plt.close(fig)
-    print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
+    print(f"{plot_filename} has been saved successfully at {', '.join(str(p) for p in saved_paths)}.\n")
 
     plot_filename = f"{today}_author-contributions-proxy.{plotFormat}"
     topRepos = df_all_repos_plus[df_all_repos_plus['repository'].str.contains('Dryad|Texas Data Repository|Zenodo|Harvard Dataverse')].copy()
@@ -393,10 +388,9 @@ if df_all_repos_plus is not None:
     ax.set_axisbelow(True)
     plt.legend(title='Author Position', title_fontsize='13', fontsize='12', ncol=2, loc='lower center', bbox_to_anchor=(0.5, -0.33))
     plt.tight_layout()
-    plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    saved_paths = save_plot(fig, plot_filename, plots_dir, export_dirs, format=plotFormat, dpi=dpi)
     plt.close(fig)
-    print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
+    print(f"{plot_filename} has been saved successfully at {', '.join(str(p) for p in saved_paths)}.\\n")
 
 ### Metadata assessments ###
 #### Contains software
@@ -438,10 +432,9 @@ if df_metadata is not None:
     ax.set_axisbelow(True)
     plt.tight_layout()
 
-    plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    saved_paths = save_plot(fig, plot_filename, plots_dir, export_dirs, format=plotFormat, dpi=dpi)
     plt.close(fig)
-    print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
+    print(f"{plot_filename} has been saved successfully at {', '.join(str(p) for p in saved_paths)}.\\n")
 
     #### File size
     plot_filename = f"{today}_datasets-by-size-bin.{plotFormat}"
@@ -533,10 +526,9 @@ if df_metadata is not None:
         )
     plt.tight_layout()
 
-    plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    saved_paths = save_plot(fig, plot_filename, plots_dir, export_dirs, format=plotFormat, dpi=dpi)
     plt.close(fig)
-    print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
+    print(f"{plot_filename} has been saved successfully at {', '.join(str(p) for p in saved_paths)}.\\n")
 
     #### Licensing
     plot_filename = f"{today}_datasets-by-licensing-all.{plotFormat}"
@@ -554,10 +546,9 @@ if df_metadata is not None:
     ax.set_axisbelow(True)
     plt.tight_layout()
 
-    plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    saved_paths = save_plot(fig, plot_filename, plots_dir, export_dirs, format=plotFormat, dpi=dpi)
     plt.close(fig)
-    print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
+    print(f"{plot_filename} has been saved successfully at {', '.join(str(p) for p in saved_paths)}.\\n")
 
     ##### Licensing minus Dryad and TDR (CC0 default or mandatory)
     plot_filename = f"{today}_datasets-by-licensing-select.{plotFormat}"
@@ -575,10 +566,9 @@ if df_metadata is not None:
     ax.set_axisbelow(True)
     plt.tight_layout()
 
-    plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    saved_paths = save_plot(fig, plot_filename, plots_dir, export_dirs, format=plotFormat, dpi=dpi)
     plt.close(fig)
-    print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
+    print(f"{plot_filename} has been saved successfully at {', '.join(str(p) for p in saved_paths)}.\\n")
 
     #### Combined licensing
     plot_filename = f"{today}_datasets-by-licensing-combined.{plotFormat}"
@@ -607,10 +597,9 @@ if df_metadata is not None:
     ax.set_axisbelow(True)
     ax.legend(loc='lower right')
     plt.tight_layout()
-    plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    saved_paths = save_plot(fig, plot_filename, plots_dir, export_dirs, format=plotFormat, dpi=dpi)
     plt.close(fig)
-    print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
+    print(f"{plot_filename} has been saved successfully at {', '.join(str(p) for p in saved_paths)}.\\n")
 
     ### Combined licensing with high-freq and low-freq divided
     plot_filename = f"{today}_datasets-by-licensing-combined-stacked.{plotFormat}"
@@ -659,10 +648,9 @@ if df_metadata is not None:
     plt.subplots_adjust(hspace=0.1) 
     plt.tight_layout()
 
-    plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    saved_paths = save_plot(fig, plot_filename, plots_dir, export_dirs, format=plotFormat, dpi=dpi)
     plt.close(fig)
-    print(f"{plot_filename} has been saved successfully at {plot_path}.\n")
+    print(f"{plot_filename} has been saved successfully at {', '.join(str(p) for p in saved_paths)}.\n")
 
     #### Descriptive words
     plot_filename = f"{today}_datasets-title-descriptive.{plotFormat}"
@@ -682,10 +670,9 @@ if df_metadata is not None:
     ax.set_axisbelow(True)
     plt.tight_layout()
 
-    plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    saved_paths = save_plot(fig, plot_filename, plots_dir, export_dirs, format=plotFormat, dpi=dpi)
     plt.close(fig)
-    print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
+    print(f"{plot_filename} has been saved successfully at {', '.join(str(p) for p in saved_paths)}.\\n")
 
     #### Non-descriptive words
     plot_filename = f"{today}_datasets-title-nondescriptive.{plotFormat}"
@@ -702,10 +689,9 @@ if df_metadata is not None:
     ax.set_axisbelow(True)
     plt.tight_layout()
 
-    plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    saved_paths = save_plot(fig, plot_filename, plots_dir, export_dirs, format=plotFormat, dpi=dpi)
     plt.close(fig)
-    print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
+    print(f"{plot_filename} has been saved successfully at {', '.join(str(p) for p in saved_paths)}.\\n")
 
 ##### FOR ACCESSING FILES IN ACCESSORY-OUTPUTS #####
 script_dir = os.getcwd()
@@ -848,10 +834,9 @@ if df_dryad is not None and df_dryadUT is not None:
 
     plt.tight_layout()
 
-    plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    saved_paths = save_plot(fig, plot_filename, plots_dir, export_dirs, format=plotFormat, dpi=dpi)
     plt.close(fig)
-    print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
+    print(f"{plot_filename} has been saved successfully at {', '.join(str(p) for p in saved_paths)}.\\n")
 
 ### RADS reanalysis (versions) ###
 patternC = '_RADS-figshare-datasets-progressive-filtering-summary.csv'
@@ -899,7 +884,6 @@ if df_rads is not None:
 
     plt.tight_layout()
 
-    plot_path = os.path.join(plots_dir, plot_filename)
-    plt.savefig(plot_path, format=plotFormat, dpi=dpi)
+    saved_paths = save_plot(fig, plot_filename, plots_dir, export_dirs, format=plotFormat, dpi=dpi)
     plt.close(fig)
-    print(f"{plot_filename} has been saved successfully at {plot_path}.\\n")
+    print(f"{plot_filename} has been saved successfully at {', '.join(str(p) for p in saved_paths)}.\\n")

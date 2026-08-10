@@ -30,6 +30,39 @@ def load_env_config():
 
     return env
 
+# Sentinel that can appear in EXPORT_DIRS (.env) to mean "the script's normal default
+# output location", so it can be combined with additional custom directories in the list.
+DEFAULT_EXPORT_DIR = 'default'
+
+# Turns a script's default export directory plus an EXPORT_DIRS list from .env into the
+# actual list of directories an export should be written to. An empty/missing list falls
+# back to just the default directory (current behavior). Relative paths are resolved
+# against the repo root.
+def resolve_export_dirs(default_dir, export_dirs):
+    default_dir = Path(default_dir)
+    if not export_dirs:
+        return [default_dir]
+
+    resolved = []
+    for entry in export_dirs:
+        if entry == DEFAULT_EXPORT_DIR:
+            resolved.append(default_dir)
+        else:
+            entry_path = Path(entry)
+            resolved.append(entry_path if entry_path.is_absolute() else ROOT_DIR / entry_path)
+    return resolved
+
+# Saves a matplotlib figure to every directory resolved by resolve_export_dirs, creating
+# each directory as needed. Returns the list of paths written to.
+def save_plot(fig, filename, default_dir, export_dirs, **savefig_kwargs):
+    saved_paths = []
+    for directory in resolve_export_dirs(default_dir, export_dirs):
+        directory.mkdir(parents=True, exist_ok=True)
+        path = directory / filename
+        fig.savefig(path, **savefig_kwargs)
+        saved_paths.append(path)
+    return saved_paths
+
 ### API retrieval functions ###
 
 # Retrieves single page of Dryad results
