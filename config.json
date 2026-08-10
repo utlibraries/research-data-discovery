@@ -149,7 +149,7 @@
             "datacite": 1000,
             "dataverse": 200,
             "openalex": 200,
-            "zenodo": 200,
+            "zenodo": 100,
             "ncbi": 200
         },
         "PAGE_LIMITS": {
@@ -166,7 +166,7 @@
             "dryad": 1,
             "datacite": 0,
             "dataverse": 0,
-            "zenodo": 0
+            "zenodo": 1
         },
         "PAGE_INCREMENTS": {
             "dataverse": 1
