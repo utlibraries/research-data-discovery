@@ -1819,7 +1819,7 @@ def log_selected_env(env, keys, file):
 
 # Writes one file specific to this run:
 unique_timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-with open(f'logs/{unique_timestamp}-log.txt', 'w') as resultssummaryfile:
+with open(f'{LOG_DIR}/{unique_timestamp}-log.txt', 'w') as resultssummaryfile:
     resultssummaryfile.write(f'Affiliated research object discovery for: {env['INSTITUTION']['name']}, run on {start_timezone_formatted} for {runtime} (hours:minutes:seconds.milliseconds).\n\n')
     resultssummaryfile.write(f'User: {env['EMAIL']['user_email']}\n\n')
 
