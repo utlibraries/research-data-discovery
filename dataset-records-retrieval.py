@@ -1760,14 +1760,14 @@ if crossref_workflow:
         )
         df_data_select_crossref_deduplicated['rights_standardized'] = standardize_rights(df_data_select_crossref_deduplicated)
 
-        df_data_select_crossref_deduplicated.to_csv(f"outputs/{today}_crossref-all-objects.csv", index=False)
+        df_data_select_crossref_deduplicated.to_csv(f"{DATA_DIR}/{today}_crossref-all-objects.csv", index=False)
 
         # Removing anything that doesn't actually have some form of 'UT Austin'
         df_data_select_crossref_true = df_data_select_crossref_deduplicated[df_data_select_crossref_deduplicated['affiliation_permutation'].notna()].copy()
         # Standardizing platform names
         df_data_select_crossref_true.loc[df_data_select_crossref_true['repository'].str.contains('H1 Connect', case=False), 'repository'] = 'H1 Connect (Faculty Opinions)'
         df_data_select_crossref_true.loc[df_data_select_crossref_true['repository'].str.contains('Faculty Opinions', case=False), 'repository'] = 'H1 Connect (Faculty Opinions)'
-        df_data_select_crossref_true.to_csv(f"outputs/{today}_crossref-objects.csv", index=False)
+        df_data_select_crossref_true.to_csv(f"{DATA_DIR}/{today}_crossref-objects.csv", index=False)
 
         # Get summary counts of repositories (key: primary_location.source.display_name)
         repo_count = df_data_select_crossref_true['repository'].value_counts()
@@ -1789,7 +1789,7 @@ if crossref_workflow:
         # Will need to be customized for a different institution, although some are likely to recur (e.g., H1, Authorea)
         df_data_select_crossref_pruned_repos = df_data_select_crossref_pruned[~df_data_select_crossref_pruned['repository'].str.contains('H1 Connect|Wiley|NumFOCUS|Exploration Geophysicists|College of Radiology')]
 
-        df_data_select_crossref_pruned_repos.to_csv(f"outputs/{today}_crossref-true-datasets.csv", index=False)
+        df_data_select_crossref_pruned_repos.to_csv(f"{DATA_DIR}/{today}_crossref-true-datasets.csv", index=False)
 
         save_stage_checkpoint(df_data_select_crossref_pruned_repos, DATA_DIR, 'crossref')
     except Exception as e:
